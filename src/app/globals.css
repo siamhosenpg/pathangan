@@ -25,6 +25,7 @@
 body {
   font-family: "Noto Sans Bengali", sans-serif;
   background-color: var(--color-background);
+  color: var(--color-text);
 }
 img {
   object-fit: cover;
@@ -38,4 +39,32 @@ button,
 input {
   outline: none;
   display: block;
+}
+
+h1 {
+  font-family: "Hind Siliguri", sans-serif;
+  font-size: 40px;
+  font-weight: 700;
+}
+h2 {
+  font-family: "Hind Siliguri", sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+}
+h3 {
+  font-family: "Hind Siliguri", sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+}
+h6 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+p {
+  line-height: 25px;
+}
+
+.pra {
+  line-height: 30px;
 }

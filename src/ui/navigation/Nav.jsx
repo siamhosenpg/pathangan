@@ -1,3 +1,4 @@
+"use client";
 import React from "react";
 import { Navigationdata } from "./navigationdata";
 import { IoSearch } from "react-icons/io5";

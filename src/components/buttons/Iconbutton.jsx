@@ -1,15 +1,14 @@
 // components/IconButton.jsx
+
 import React from "react";
 
 export default function IconButton({
   icon: Icon,
-  ClickSystem,
   className,
   NotifacationStatus,
 }) {
   return (
     <button
-      onClick={ClickSystem}
       className={`p-2 rounded-full cursor-pointer text-text-second shrink-0 flex items-center justify-center  w-[36px] h-[36px] relative  transition ${className}`}
     >
       {NotifacationStatus && (
