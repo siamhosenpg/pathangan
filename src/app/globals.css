@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+@theme {
+  --color-text: #222;
+  --color-text-second: #555;
+  --color-text-third: #777;
+  --color-background: #fff;
+  --color-background-second: #f5f5f5;
+  --color-theme: #0044ff;
+  --color-border: #ddd;
+  --color-border-second: #eee;
+}
+
+.Clolor {
+  color: #0044ff;
+}
+
 /* @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -9,8 +24,18 @@
 
 body {
   font-family: "Noto Sans Bengali", sans-serif;
+  background-color: var(--color-background);
+}
+img {
+  object-fit: cover;
 }
 .Pagearea {
   padding-left: 10%;
   padding-right: 10%;
+}
+
+button,
+input {
+  outline: none;
+  display: block;
 }
