@@ -1,37 +1,71 @@
 export const NavData = [
   {
-    name: "হোম",
+    name: "কমিউনিটি",
     link: "/",
   },
   {
-    name: "আমাদের সম্পর্কে",
+    name: "ঘোষণাপত্র",
     link: "/about",
   },
   {
-    name: "সার্ভিসসমূহ",
-    link: "/services",
-  },
-  {
-    name: "ব্লগ",
-    link: "/blog",
-  },
-  {
-    name: "পণ্যসমূহ",
-    link: "/shop",
+    name: "প্রশ্নসমূহ",
+    link: "/questions",
     submenu: [
       {
-        name: "পণ্য ১",
-        link: "/shop/product1",
+        name: "জুনিয়র স্কুল সার্টিফিকেট",
+        link: "/jsc",
       },
       {
-        name: "পণ্য ২",
-        link: "/shop/product2",
+        name: "সিনিয়র স্কুল সার্টিফিকেট",
+        link: "/ssc",
       },
       {
-        name: "পণ্য ৩",
-        link: "/shop/product3",
+        name: "উচ্চ মাধ্যমিক সার্টিফিকেট",
+        link: "/hsc",
+      },
+      {
+        name: "বিশ্ববিদ্যালয়",
+        link: "/university",
       },
     ],
+  },
+  {
+    name: "শিক্ষকবৃন্দ ",
+    link: "/teachers",
+  },
+  {
+    name: "বই সমূহ",
+    link: "/books",
+    submenu: [
+      {
+        name: "একাডেমিক বই",
+        link: "/shop/academic-books",
+      },
+      {
+        name: "নন-একাডেমিক বই",
+        link: "/shop/non-academic-books",
+      },
+      {
+        name: "সাহিত্য",
+        link: "/shop/literature",
+      },
+      {
+        name: "বিজ্ঞান",
+        link: "/shop/science",
+      },
+      {
+        name: "ইতিহাস",
+        link: "/shop/history",
+      },
+      {
+        name: "ধর্ম",
+        link: "/shop/religion",
+      },
+    ],
+  },
+  {
+    name: "কোর্স সমূহ",
+    link: "/courses",
   },
   {
     name: "যোগাযোগ",
