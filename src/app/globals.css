@@ -44,3 +44,10 @@ body {
   max-width: 1800px;
   margin: 0 auto;
 }
+
+input,
+textarea,
+select,
+button {
+  outline: none;
+}

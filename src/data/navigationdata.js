@@ -1,3 +1,8 @@
+import { LuBookOpenText } from "react-icons/lu";
+import { LuNotebookPen } from "react-icons/lu";
+import { LiaIdCardSolid } from "react-icons/lia";
+import { GrAnnounce } from "react-icons/gr";
+
 export const NavData = [
   {
     name: "কমিউনিটি",
@@ -6,10 +11,12 @@ export const NavData = [
   {
     name: "ঘোষণাপত্র",
     link: "/about",
+    icon: GrAnnounce,
   },
   {
     name: "প্রশ্নসমূহ",
     link: "/questions",
+    icon: LuNotebookPen,
     submenu: [
       {
         name: "জুনিয়র স্কুল সার্টিফিকেট",
@@ -32,6 +39,7 @@ export const NavData = [
   {
     name: "শিক্ষকবৃন্দ ",
     link: "/teachers",
+    icon: LiaIdCardSolid,
   },
   {
     name: "বই সমূহ",

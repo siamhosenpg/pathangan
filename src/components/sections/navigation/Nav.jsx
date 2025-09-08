@@ -1,9 +1,12 @@
 import React from "react";
-import { NavData } from "./navigationdata"; // Adjust the path as necessary
+import { NavData } from "../../../data/navigationdata"; // Adjust the path as necessary
 
 // Importing icons from react-icons
-import { CgProfile } from "react-icons/cg";
 import { FaAngleDown } from "react-icons/fa6";
+// Importing the component
+import Searchbox from "@/components/ui/searchbox/Searchbox";
+import ProfileAvater from "@/components/interactive/ProfileAvater";
+import Carticon from "@/components/interactive/Carticon";
 
 const Nav = () => {
   return (
@@ -19,44 +22,55 @@ const Nav = () => {
             />
           </div>
           <ul className="flex gap-6 items-center font-medium ">
-            {NavData.map((item, index) => (
-              <li key={index} className="relative group    ">
-                {item.submenu ? (
-                  <span className="flex items-center gap-1">
-                    <span className="">{item.name}</span>
-                    <FaAngleDown className="text-[10px] text-text-secondary group-hover:rotate-[-90deg] duration-200" />
-                  </span>
-                ) : (
-                  <div className="cursor-pointer">{item.name}</div>
-                )}
+            {NavData.map((item, index) => {
+              const Icon = item.icon;
+              return (
+                <li key={index} className="relative group    ">
+                  {item.submenu ? (
+                    <span className="flex items-center gap-1">
+                      {Icon ? <Icon className=" text-xl" /> : null}
+                      <span className="">{item.name}</span>
+                      <FaAngleDown className="text-[10px] text-text-secondary group-hover:rotate-[-90deg] duration-200" />
+                    </span>
+                  ) : (
+                    <div className="cursor-pointer flex items-center gap-1">
+                      {Icon ? <Icon className="text-xl" /> : null}
 
-                {item.submenu ? (
-                  <div className="absolute hidden bg-transparent pt-6 mt-[-10px] group-hover:block w-fit ">
-                    <ul className="  bg-background p-3 rounded border-border border w-fit">
-                      {item.submenu &&
-                        item.submenu.map((subItem, subIndex) => (
-                          <li
-                            className="px-6 py-3 rounded hover:bg-background-secondary min-w-[150px] text-nowrap cursor-pointer "
-                            key={subIndex}
-                          >
-                            {subItem.name}
-                          </li>
-                        ))}
-                    </ul>
-                  </div>
-                ) : null}
-              </li>
-            ))}
+                      {item.name}
+                    </div>
+                  )}
+
+                  {item.submenu ? (
+                    <div className="absolute hidden bg-transparent pt-6 mt-[-10px] group-hover:block w-fit ">
+                      <ul className="  bg-background p-3 rounded border-border border w-fit">
+                        {item.submenu &&
+                          item.submenu.map((subItem, subIndex) => {
+                            return (
+                              <li
+                                className="px-6 py-3 rounded hover:bg-background-secondary min-w-[150px] text-nowrap cursor-pointer "
+                                key={subIndex}
+                              >
+                                {subItem.name}
+                              </li>
+                            );
+                          })}
+                      </ul>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         </div>
         {/* Right side: Search and icons */}
         <div className="flex gap-6 items-center">
-          <div>DarkModeToggle</div>
-          <div>Search</div>
-          <div>Cart</div>
           <div>
-            <CgProfile />
+            <Carticon />
           </div>
+          <div>
+            <ProfileAvater />
+          </div>
+          <Searchbox />
         </div>
       </div>
     </div>
