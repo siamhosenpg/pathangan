@@ -26,6 +26,7 @@ export default function RootLayout({ children }) {
         <div>
           <Nav />
         </div>
+        <div className="bg-green-600 w-full h-[70px]"></div>
         {children}
       </body>
     </html>

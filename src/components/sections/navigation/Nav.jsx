@@ -11,6 +11,8 @@ import Carticon from "@/components/interactive/Carticon";
 const Nav = () => {
   return (
     <div className="bg-background border-b border-border h-18  fixed top-0 left-0 w-full z-50">
+      {/* loading indicator */}
+      <div className=" hidden w-5/12 mb-[-2] bg-green-600 h-1 absolute bottom-0"></div>
       <div className="Pagearea flex justify-between items-center h-full">
         {/*  Left side: Logo and Navigation Links */}
         <div className="flex items-center gap-8 ">
