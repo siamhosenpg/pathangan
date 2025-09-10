@@ -1,10 +1,15 @@
-import { Geist, Geist_Mono } from "next/font/google";
+import { Baloo_Da_2, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Nav from "@/components/sections/navigation/Nav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+});
+
+const baloo = Baloo_Da_2({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"], // যেগুলো লাগবে সেগুলো দাও
 });
 
 const geistMono = Geist_Mono({
@@ -20,9 +25,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${baloo.className}  antialiased`}>
         <div>
           <Nav />
         </div>

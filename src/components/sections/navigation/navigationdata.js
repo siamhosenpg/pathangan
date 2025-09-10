@@ -11,12 +11,11 @@ export const NavData = [
   {
     name: "ঘোষণাপত্র",
     link: "/about",
-    icon: GrAnnounce,
   },
   {
     name: "প্রশ্নসমূহ",
     link: "/questions",
-    icon: LuNotebookPen,
+
     submenu: [
       {
         name: "জুনিয়র স্কুল সার্টিফিকেট",
@@ -39,7 +38,6 @@ export const NavData = [
   {
     name: "শিক্ষকবৃন্দ ",
     link: "/teachers",
-    icon: LiaIdCardSolid,
   },
   {
     name: "বই সমূহ",
@@ -78,5 +76,9 @@ export const NavData = [
   {
     name: "যোগাযোগ",
     link: "/contact",
+  },
+  {
+    name: "আমাদের সম্পর্কে",
+    link: "/about",
   },
 ];

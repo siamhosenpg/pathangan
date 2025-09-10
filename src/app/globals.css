@@ -8,7 +8,7 @@
   --text-thirdnary: #999999;
   --accent: #0070f3;
   --border: #eaeaea;
-  --area: 10%;
+  --area: 7%;
 }
 
 @theme inline {
@@ -55,6 +55,6 @@ button {
 }
 
 h1 {
-  font-size: 40px;
+  font-size: 46px;
   font-weight: 700;
 }

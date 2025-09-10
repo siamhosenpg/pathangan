@@ -1,5 +1,5 @@
 import React from "react";
-import { NavData } from "../../../data/navigationdata"; // Adjust the path as necessary
+import { NavData } from "./navigationdata"; // Adjust the path as necessary
 
 // Importing icons from react-icons
 import { FaAngleDown } from "react-icons/fa6";
