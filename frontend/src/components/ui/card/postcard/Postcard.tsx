@@ -1,35 +1,18 @@
 import Image from "next/image";
-import React from "react";
-import { FaCaretDown } from "react-icons/fa6";
-import { FaRegHeart } from "react-icons/fa6";
-import { HiDotsHorizontal } from "react-icons/hi";
+
 import { MdBookmarkBorder, MdBookmark } from "react-icons/md";
+
+import LikeButton from "./LikeButton";
+import CommentsButton from "./CommentsButton";
+import ShareButton from "./ShareButton";
+import PostProfiletop from "./PostProfiletop";
 
 const Postcard = () => {
   return (
     <div className="bg-background pt-6 rounded-xl">
-      <div className="top px-6 flex items-center justify-between">
-        <div className="flex items-center gap-2 ">
-          <div className="w-12 h-12 rounded-full overflow-hidden border-border shrink-0">
-            <Image
-              width={80}
-              height={80}
-              className=" bg-gray-300  w-full h-full object-cover "
-              src=""
-              alt=""
-            />
-          </div>
-          <div>
-            <h5>Siam Hosen</h5>
-            <span className="block -mt-1 text-sm">3 years ago</span>
-          </div>
-        </div>
-        <div>
-          <HiDotsHorizontal size={19} />
-        </div>
-      </div>
+      <PostProfiletop />
       <div>
-        <h3 className="mt-2 px-6">
+        <h3 className="mt-2 px-6 ">
           প্রাচীন সভ্যতার জন্মভূমি ও আধুনিক বিশ্বের এক অনন্য কেন্দ্র
         </h3>
         <p className="mt-2 px-6 line-clamp-3">
@@ -60,28 +43,23 @@ const Postcard = () => {
         <div className="px-6 py-1 flex items-center gap-3 border-b border-border">
           <div>
             <span className="font-medium">34</span>{" "}
-            <span className="text-sm">অন্যতম</span>
+            <span className="text-sm">সমর্থন</span>
           </div>
           <div>
             <span className="font-medium">34</span>{" "}
-            <span className="text-sm">অন্যতম </span>
+            <span className="text-sm">মতামত </span>
           </div>
           <div>
             <span className="font-medium">34</span>{" "}
-            <span className="text-sm">অন্যতম</span>
+            <span className="text-sm">প্রচার</span>
           </div>
         </div>
 
-        <div className="px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button className="  flex items-center gap-1.5  ">
-              <FaRegHeart size={19} />
-              <span className="">প্রধান</span>
-            </button>
-            <button className="  flex items-center gap-1.5  ">
-              <FaCaretDown size={19} />
-              <span className="">প্রধান</span>
-            </button>
+        <div className="px-6 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <LikeButton />
+            <CommentsButton />
+            <ShareButton />
           </div>
           <div>
             <button className="  flex items-center gap-1.5  ">

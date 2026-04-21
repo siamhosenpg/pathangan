@@ -1,4 +1,5 @@
 import Postcard from "@/components/ui/card/postcard/Postcard";
+import QuestionCard from "@/components/ui/card/questioncard/QuestionCard";
 import Image from "next/image";
 
 export default function Home() {
@@ -13,8 +14,9 @@ export default function Home() {
         </nav>
 
         {/* Main Content */}
-        <div className="flex-1 w-full lg:w-[44%] mt-2 md:mt-4  ">
+        <div className="flex-1 w-full lg:w-[44%] mt-2 md:mt-4  flex gap-4 flex-col ">
           <Postcard />
+          <QuestionCard />
         </div>
 
         {/* Right Sidebar */}

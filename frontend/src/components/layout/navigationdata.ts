@@ -44,37 +44,7 @@ export const navigationdata = [
     name: "শিক্ষকবৃন্দ",
     link: "/teachers",
   },
-  {
-    name: "বই সমূহ",
-    link: "/books",
 
-    submenu: [
-      {
-        name: "একাডেমিক বই",
-        link: "/shop/academic-books",
-      },
-      {
-        name: "নন-একাডেমিক বই",
-        link: "/shop/non-academic-books",
-      },
-      {
-        name: "সাহিত্য",
-        link: "/shop/literature",
-      },
-      {
-        name: "বিজ্ঞান",
-        link: "/shop/science",
-      },
-      {
-        name: "ইতিহাস",
-        link: "/shop/history",
-      },
-      {
-        name: "ধর্ম",
-        link: "/shop/religion",
-      },
-    ],
-  },
   {
     name: "কোর্স সমূহ",
     link: "/courses",
