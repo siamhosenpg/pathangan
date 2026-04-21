@@ -30,8 +30,8 @@
   --color-background-gradient: var(--background-gradient);
   --color-foreground: var(--foreground);
   --color-border: var(--border);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter); /* English → Inter */
+  --font-bengali: var(--font-baloo); /* Bengali → Baloo */
 }
 
 .dark {
@@ -56,6 +56,7 @@
 body {
   background: var(--background-secondary);
   color: var(--foreground);
+  font-family: var(--font-inter), var(--font-baloo), sans-serif;
 
   font-size: 16px;
 }

@@ -15,18 +15,22 @@ const AnswerCard = () => {
           নতুন জিনিস শিখি। প্রতিটি মানুষের শিক্ষার অধিকার রয়েছে এবং এটি আমাদের
           ব্যক্তিগত উন্নয়নের চাবিকাঠি।
         </p>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 mt-1">
           <div className=" text-sm">
             <StarRating rating={4.5} />
           </div>
-          <div className=" flex items-center gap-3  mt-1 ">
+          <div className=" flex items-center gap-3   ">
             <div>
               <span className="font-medium text-sm">34</span>{" "}
-              <span className="text-xs font-medium">ইতিবাচক</span>
+              <span className="text-xs font-medium text-text-tertiary">
+                ইতিবাচক
+              </span>
             </div>
             <div>
               <span className="font-medium text-sm">34</span>{" "}
-              <span className="text-xs font-medium">নেতিবাচক </span>
+              <span className="text-xs font-medium text-text-tertiary">
+                নেতিবাচক{" "}
+              </span>
             </div>
           </div>
         </div>

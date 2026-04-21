@@ -1,28 +1,31 @@
+import LeftNav from "@/components/layout/navigation/LeftNav";
 import Postcard from "@/components/ui/card/postcard/Postcard";
 import QuestionCard from "@/components/ui/card/questioncard/QuestionCard";
+import Profilecard from "@/components/ui/profilecard/Profilecard";
+import ProfileNavcard from "@/components/ui/profilecard/ProfileNavcard";
 import Image from "next/image";
 
 export default function Home() {
   return (
-    <main className="bg-background-secondary ">
-      <div className="flex Pagearea  min-h-screen gap-6 xl:gap-6 2xl:gap-6 ">
-        {/* Left Sidebar */}
-        <nav className=" w-[40%] xl:w-[27%] hidden lg:block  sticky top-22.5  h-[calc(100vh-90px)] rounded-t-lg  ">
-          <div className="w-full  overflow-y-hidden hover:overflow-y-scroll h-full  ScrollSystem  ">
-            fgsg
-          </div>
-        </nav>
-
+    <main className=" w-full  ">
+      <div className="flex gap-6 ">
         {/* Main Content */}
-        <div className="flex-1 w-full lg:w-[44%] mt-2 md:mt-4  flex gap-4 flex-col ">
+        <div className="flex-1 w-[44%]  flex gap-4 flex-col pb-18 ">
           <Postcard />
           <QuestionCard />
         </div>
 
         {/* Right Sidebar */}
-        <nav className="w-[27%]  hidden xl:block    sticky  top-22.5  h-[calc(100vh-90px)] rounded-t-lg  ">
+        <nav className="w-[40%] shrink-0 hidden xl:block    sticky  top-22.5  h-[calc(100vh-90px)] rounded-t-lg  ">
           <div className="  overflow-y-hidden hover:overflow-y-scroll ScrollSystem w-full h-full  ">
-            adfd
+            <div className="bg-background rounded-xl p-4 flex flex-col gap-1.5">
+              <Profilecard />
+              <Profilecard />
+              <Profilecard />
+              <Profilecard />
+              <Profilecard />
+              <Profilecard />
+            </div>
           </div>
         </nav>
       </div>

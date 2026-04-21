@@ -8,7 +8,7 @@ import { FaAngleDown } from "react-icons/fa6";
 import { IconType } from "react-icons";
 
 // Component
-import Searchbox from "../ui/searchbox/Searchbox";
+import Searchbox from "../../ui/searchbox/Searchbox";
 
 type SubMenuItem = {
   name: string;

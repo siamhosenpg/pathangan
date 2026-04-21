@@ -4,7 +4,7 @@ const AnswerButton = () => {
   return (
     <button className="  flex items-center gap-1.5  ">
       <LuFilePenLine size={19} />
-      <span className=" font-medium block mt-0.5">উত্তর</span>
+      <span className=" font-medium block">উত্তর</span>
     </button>
   );
 };

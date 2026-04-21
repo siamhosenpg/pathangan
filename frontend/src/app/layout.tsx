@@ -1,21 +1,20 @@
 import type { Metadata } from "next";
-import { Baloo_Da_2, Geist, Geist_Mono } from "next/font/google";
+import { Baloo_Da_2, Inter } from "next/font/google";
 import "./globals.css";
-import Nav from "@/components/layout/Nav";
+import Nav from "@/components/layout/navigation/Nav";
+import ProfileNavcard from "@/components/ui/profilecard/ProfileNavcard";
+import LeftNav from "@/components/layout/navigation/LeftNav";
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-inter",
+});
 
 const baloo = Baloo_Da_2({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"], // যেগুলো লাগবে সেগুলো দাও
-});
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  subsets: ["bengali", "latin"], // bengali subset অবশ্যই লাগবে
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-baloo",
 });
 
 export const metadata: Metadata = {
@@ -31,12 +30,20 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={` ${baloo.className} ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${baloo.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <Nav />
-        <div className="w-full h-18 "></div>
-        {children}
+        <div className="w-full h-18"></div>
+        <div className="Pagearea flex items-start   gap-6 xl:gap-6 2xl:gap-6 ">
+          <nav className=" w-[25%] hidden lg:block shrink-0  sticky top-22.5  h-[calc(100vh-108px)] rounded-t-lg  ">
+            <div className="w-full  overflow-y-hidden  h-full flex  flex-col gap-4 ">
+              <ProfileNavcard />
+              <LeftNav />
+            </div>
+          </nav>
+          <div className="w-full pt-4.5  flex items-start  ">{children}</div>
+        </div>
       </body>
     </html>
   );

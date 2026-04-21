@@ -4,7 +4,7 @@ const ShareButton = () => {
   return (
     <button className="  flex items-center gap-1.5  ">
       <PiShareFatBold size={19} />
-      <span className="font-medium block mt-0.5">প্রচার</span>
+      <span className="font-medium block ">প্রচার</span>
     </button>
   );
 };

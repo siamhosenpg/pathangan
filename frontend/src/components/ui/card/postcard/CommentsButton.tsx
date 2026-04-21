@@ -4,7 +4,7 @@ const CommentsButton = () => {
   return (
     <button className="  flex items-center gap-1.5  ">
       <FaRegComment size={19} />
-      <span className=" font-medium block mt-0.5">মতামত</span>
+      <span className=" font-medium block ">মতামত</span>
     </button>
   );
 };
