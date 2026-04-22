@@ -1,4 +1,5 @@
 import LeftNav from "@/components/layout/navigation/LeftNav";
+import CourseCardFeed from "@/components/ui/card/course/CourseCardFeed";
 import Postcard from "@/components/ui/card/postcard/Postcard";
 import QuestionCard from "@/components/ui/card/questioncard/QuestionCard";
 import Profilecard from "@/components/ui/profilecard/Profilecard";
@@ -12,6 +13,7 @@ export default function Home() {
         {/* Main Content */}
         <div className="flex-1 w-[44%]  flex gap-4 flex-col pb-18 ">
           <Postcard />
+          <CourseCardFeed />
           <QuestionCard />
         </div>
 

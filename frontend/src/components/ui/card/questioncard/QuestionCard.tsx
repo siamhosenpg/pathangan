@@ -7,6 +7,7 @@ import { MdBookmarkBorder, MdBookmark } from "react-icons/md";
 import LikeButton from "../postcard/LikeButton";
 import ShareButton from "../postcard/ShareButton";
 import AnswerButton from "../postcard/AnswerButton";
+import BanglaNumber from "../../extra/Banglanumber";
 
 const QuestionCard = () => {
   return (
@@ -19,16 +20,22 @@ const QuestionCard = () => {
       </div>
       <div className="px-6 py-1 mt-2 border-b border-border flex items-center justify-between">
         <div className=" flex items-center gap-3 ">
-          <div>
-            <span className="font-medium">34</span>{" "}
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium">
+              <BanglaNumber value={54} />
+            </span>
             <span className="text-sm">সমর্থন</span>
           </div>
-          <div>
-            <span className="font-medium">34</span>{" "}
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium">
+              <BanglaNumber value={54} />
+            </span>
             <span className="text-sm">উত্তর </span>
           </div>
-          <div>
-            <span className="font-medium">34</span>{" "}
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium">
+              <BanglaNumber value={54} />
+            </span>
             <span className="text-sm">প্রচার</span>
           </div>
         </div>

@@ -6,6 +6,7 @@ import LikeButton from "./LikeButton";
 import CommentsButton from "./CommentsButton";
 import ShareButton from "./ShareButton";
 import PostProfiletop from "./PostProfiletop";
+import BanglaNumber from "../../extra/Banglanumber";
 
 const Postcard = () => {
   return (
@@ -41,16 +42,22 @@ const Postcard = () => {
         </div>
 
         <div className="px-6 py-1 flex items-center gap-3 border-b border-border">
-          <div>
-            <span className="font-medium">34</span>{" "}
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium">
+              <BanglaNumber value={54} />
+            </span>
             <span className="text-sm">সমর্থন</span>
           </div>
-          <div>
-            <span className="font-medium">34</span>{" "}
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium">
+              <BanglaNumber value={54} />
+            </span>
             <span className="text-sm">মতামত </span>
           </div>
-          <div>
-            <span className="font-medium">34</span>{" "}
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium">
+              <BanglaNumber value={54} />
+            </span>
             <span className="text-sm">প্রচার</span>
           </div>
         </div>
