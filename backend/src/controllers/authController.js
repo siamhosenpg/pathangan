@@ -1,0 +1,143 @@
+import bcrypt from "bcryptjs";
+import User from "../models/usermodel.js";
+import { generateToken } from "../utils/generateToken.js";
+
+// Cookie options
+const cookieOptions = {
+  httpOnly: true,
+  secure: false, // ← localhost এ false করো, production এ true
+  sameSite: "lax", // ← localhost এ "lax" দাও, production এ "none"
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+};
+
+// ===================== REGISTER =====================
+export async function register(req, res) {
+  try {
+    const { username, name, email, password } = req.body;
+
+    if (!username || !name || !email || !password)
+      return res
+        .status(400)
+        .json({ message: "Username, name, email and password are required" });
+
+    // Lowercase email for consistency
+    const emailLower = email.toLowerCase();
+
+    // Check email exists
+    const existing = await User.findOne({ email: emailLower });
+    if (existing)
+      return res.status(409).json({ message: "Email already in use" });
+
+    // Check username exists
+    const userNameExists = await User.findOne({ username });
+    if (userNameExists)
+      return res.status(409).json({ message: "Username already taken" });
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashed = await bcrypt.hash(password, salt);
+
+    const user = await User.create({
+      username,
+      name,
+      email: emailLower,
+      password: hashed,
+    });
+
+    const token = generateToken({ id: user._id });
+
+    res.cookie("token", token, cookieOptions);
+
+    res.status(201).json({
+      user: {
+        id: user._id,
+        username: user.username,
+        name: user.name,
+        email: user.email,
+      },
+      message: "Registration successful",
+    });
+  } catch (err) {
+    console.error("Register error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
+// ===================== LOGIN =====================
+export async function login(req, res) {
+  try {
+    let { email, password } = req.body;
+
+    if (!email || !password)
+      return res.status(400).json({ message: "Email and password required" });
+
+    email = email.toLowerCase();
+
+    // Enable password selection
+    const user = await User.findOne({ email }).select("+password");
+
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // Compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // Optional: check if user is suspended/blocked
+    if (user.status !== "active") {
+      return res
+        .status(403)
+        .json({ message: `Account is ${user.status}. Contact support.` });
+    }
+
+    const token = generateToken({ id: user._id });
+
+    res.cookie("token", token, cookieOptions);
+
+    res.status(200).json({
+      user: {
+        id: user._id,
+        username: user.username || "",
+        name: user.name,
+        email: user.email,
+      },
+      message: "Login successful",
+    });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
+// ===================== GET CURRENT USER =====================
+export async function getMe(req, res) {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.status(200).json({ user });
+  } catch (err) {
+    console.error("getMe error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+// ===================== LOGOUT =====================
+export async function logout(req, res) {
+  try {
+    // Clear the token cookie
+    res.cookie("token", "", {
+      httpOnly: true,
+      secure: false, // ← login এর মতো same রাখো
+      sameSite: "lax", // ← login এর মতো same রাখো
+      expires: new Date(0),
+    });
+
+    res.status(200).json({ message: "Logout successful" });
+  } catch (err) {
+    console.error("Logout error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+}
