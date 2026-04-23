@@ -2,19 +2,15 @@ import mongoose from "mongoose";
 import Post from "../models/postmodel.js";
 import { uploadMedia } from "../utils/uploadToCloudinary.js";
 
-// GET /api/posts?limit=10&cursor=2025-12-29T17:00:00.000Z
+// ===================== GET ALL POSTS (cursor-based) =====================
 export const getPosts = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
     const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
-
     const query = cursor ? { createdAt: { $lt: cursor } } : {};
 
     const posts = await Post.find(query)
-      // 🔵 Post owner
       .populate("userid", "name username badges profileImage gender")
-
-      // 🔥 Shared post → parent post populate
       .populate({
         path: "content.parentPost",
         populate: {
@@ -22,13 +18,12 @@ export const getPosts = async (req, res) => {
           select: "name username badges profileImage gender",
         },
       })
-
       .sort({ createdAt: -1 })
-      .limit(limit + 1) // extra 1 for hasMore
+      .limit(limit + 1)
       .exec();
 
     const hasMore = posts.length > limit;
-    if (hasMore) posts.pop(); // remove extra post
+    if (hasMore) posts.pop();
 
     res.json({
       posts,
@@ -40,11 +35,24 @@ export const getPosts = async (req, res) => {
   }
 };
 
-// 🟢 Get single post by postid with user info
+// ===================== GET SINGLE POST BY MONGODB _ID =====================
 export const getPostById = async (req, res) => {
   try {
-    const post = await Post.findOne({ postid: req.params.postid })
-      .populate("userid", "name  username badges bio profileImage gender")
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid post id" });
+    }
+
+    const post = await Post.findById(id)
+      .populate("userid", "name username badges bio profileImage gender")
+      .populate({
+        path: "content.parentPost",
+        populate: {
+          path: "userid",
+          select: "name username badges profileImage gender",
+        },
+      })
       .exec();
 
     if (!post) return res.status(404).json({ message: "Post not found" });
@@ -55,55 +63,55 @@ export const getPostById = async (req, res) => {
   }
 };
 
-// 🟢 Get all posts by specific userid
+// ===================== GET POSTS BY USERID =====================
 export const getPostsByUserId = async (req, res) => {
   try {
     const userId = req.params.userid;
 
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
     const limit = parseInt(req.query.limit) || 10;
     const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
+    const postType = req.query.postType || null; // filter by postType optional
 
     const query = { userid: userId };
-    if (cursor) {
-      query.createdAt = { $lt: cursor };
-    }
+    if (cursor) query.createdAt = { $lt: cursor };
+    if (postType) query.postType = postType;
 
     const posts = await Post.find(query)
       .populate("userid", "name username bio badges profileImage gender")
-      .sort({ createdAt: -1 }) // 🔥 latest first
-      .limit(limit + 1) // 🔥 extra 1 for hasMore
+      .sort({ createdAt: -1 })
+      .limit(limit + 1)
       .exec();
 
     const hasMore = posts.length > limit;
-    if (hasMore) posts.pop(); // extra item remove
+    if (hasMore) posts.pop();
 
     return res.status(200).json({
       posts: posts || [],
       count: posts.length || 0,
       nextCursor: hasMore ? posts[posts.length - 1].createdAt : null,
-      message: posts.length === 0 ? "No posts found" : undefined,
     });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Server error" });
   }
 };
-// 🟢 Create new post (login user required)
 
-// 🟢 Create new post (login required)
+// ===================== CREATE NORMAL POST =====================
 export const createPost = async (req, res) => {
   try {
-    if (!req.user || !req.user.id) {
-      return res.status(401).json({ message: "Login required to create post" });
+    if (!req.user?.id) {
+      return res.status(401).json({ message: "Login required" });
     }
 
-    const { caption, privacy, location, tags, mentions } = req.body;
-
-    const files = req.files || []; // multer gives array
+    const { text, title, privacy, location, tags, mentions } = req.body;
+    const files = req.files || [];
     let mediaUrls = [];
     let contentType = "text";
 
-    // 🧠 If media exists
     if (files.length > 0) {
       const images = files.filter((f) => f.mimetype.startsWith("image"));
       const videos = files.filter((f) => f.mimetype.startsWith("video"));
@@ -114,102 +122,235 @@ export const createPost = async (req, res) => {
           message: "You can upload either images or a video, not both",
         });
       }
-
       if (videos.length > 1) {
-        return res.status(400).json({
-          message: "Only one video is allowed",
-        });
+        return res.status(400).json({ message: "Only one video is allowed" });
       }
-
       if (audios.length > 1) {
-        return res.status(400).json({
-          message: "Only one audio is allowed",
-        });
+        return res.status(400).json({ message: "Only one audio is allowed" });
       }
 
-      // 🖼 Multiple images
       if (images.length > 0) {
         contentType = "image";
-        mediaUrls = await Promise.all(images.map((file) => uploadMedia(file)));
+        mediaUrls = await Promise.all(images.map((f) => uploadMedia(f)));
       }
-
-      // 🎥 Single video
       if (videos.length === 1) {
         contentType = "video";
         mediaUrls = [await uploadMedia(videos[0])];
       }
-
-      // 🎵 Single audio
       if (audios.length === 1) {
         contentType = "audio";
         mediaUrls = [await uploadMedia(audios[0])];
       }
     }
 
-    // ✅ Generate random postid (7–8 digit safe)
-    const randomPostId = Math.floor(1000000 + Math.random() * 9000000);
-
     const newPost = await Post.create({
-      postid: randomPostId,
       userid: req.user.id,
+      postType: "post",
       content: {
-        caption,
+        title: title || "",
+        text: text || "",
         media: mediaUrls,
         type: contentType,
-        location,
-        tags,
-        mentions,
+        location: location || "",
+        tags: tags || [],
+        mentions: mentions || [],
       },
       privacy: privacy || "public",
     });
 
     await newPost.populate("userid", "name badges username profileImage");
-
-    res.status(201).json({
-      success: true,
-      post: newPost,
-    });
+    res.status(201).json({ success: true, post: newPost });
   } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(400).json({ success: false, message: error.message });
   }
 };
 
-// 🟢 Update post by _id
+// ===================== CREATE QUESTION POST =====================
+export const createQuestionPost = async (req, res) => {
+  try {
+    if (!req.user?.id) {
+      return res.status(401).json({ message: "Login required" });
+    }
+
+    const { questionText, tags, privacy } = req.body;
+
+    if (!questionText?.trim()) {
+      return res.status(400).json({ message: "questionText is required" });
+    }
+
+    // Question post এ media নেই
+    if (req.files?.length > 0) {
+      return res.status(400).json({
+        message: "Media upload is not allowed for question post",
+      });
+    }
+
+    const newPost = await Post.create({
+      userid: req.user.id,
+      postType: "question",
+      question: {
+        questionText: questionText.trim(),
+        tags: tags || [],
+      },
+      privacy: privacy || "public",
+    });
+
+    await newPost.populate("userid", "name badges username profileImage");
+    res.status(201).json({ success: true, post: newPost });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// ===================== CREATE COURSE POST =====================
+export const createCoursePost = async (req, res) => {
+  try {
+    if (!req.user?.id) {
+      return res.status(401).json({ message: "Login required" });
+    }
+
+    const { title, description, price, tags, privacy } = req.body;
+    const files = req.files || [];
+
+    if (!title?.trim()) {
+      return res.status(400).json({ message: "Course title is required" });
+    }
+
+    let courseMedia = [];
+
+    if (files.length > 0) {
+      const images = files.filter((f) => f.mimetype.startsWith("image"));
+      const videos = files.filter((f) => f.mimetype.startsWith("video"));
+
+      if (videos.length > 1) {
+        return res.status(400).json({ message: "Only one video is allowed" });
+      }
+
+      const imageUploads = await Promise.all(
+        images.map(async (file) => {
+          const url = await uploadMedia(file);
+          return { type: "image", url };
+        }),
+      );
+
+      const videoUploads = await Promise.all(
+        videos.map(async (file) => {
+          const url = await uploadMedia(file);
+          return { type: "video", url };
+        }),
+      );
+
+      courseMedia = [...imageUploads, ...videoUploads];
+    }
+
+    const newPost = await Post.create({
+      userid: req.user.id,
+      postType: "course",
+      course: {
+        title: title.trim(),
+        description: description?.trim() || "",
+        media: courseMedia,
+        price: Number(price) || 0,
+        tags: tags || [],
+      },
+      privacy: privacy || "public",
+    });
+
+    await newPost.populate("userid", "name badges username profileImage");
+    res.status(201).json({ success: true, post: newPost });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// ===================== CREATE SHARE POST =====================
+export const createSharePost = async (req, res) => {
+  try {
+    if (!req.user?.id) {
+      return res.status(401).json({ message: "Login required" });
+    }
+
+    const { parentPost, caption, privacy } = req.body;
+
+    if (!parentPost) {
+      return res.status(400).json({ message: "parentPost is required" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(parentPost)) {
+      return res.status(400).json({ message: "Invalid parent post id" });
+    }
+
+    const originalPost = await Post.findById(parentPost);
+    if (!originalPost) {
+      return res.status(404).json({ message: "Original post not found" });
+    }
+
+    if (req.files?.length > 0) {
+      return res.status(400).json({
+        message: "Media upload is not allowed for share post",
+      });
+    }
+
+    const sharePost = await Post.create({
+      userid: req.user.id,
+      postType: "post",
+      content: {
+        parentPost,
+        caption: caption || "",
+        type: "share",
+      },
+      privacy: privacy || "public",
+    });
+
+    await Post.findByIdAndUpdate(parentPost, { $inc: { sharesCount: 1 } });
+    await sharePost.populate("userid", "name username badges profileImage");
+
+    res.status(201).json({ success: true, post: sharePost });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ===================== UPDATE POST =====================
 export const updatePost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
-
     if (!post) return res.status(404).json({ message: "Post not found" });
 
-    // Owner check
-    if (req.user._id.toString() !== post.userid.toString()) {
+    if (req.user.id.toString() !== post.userid.toString()) {
       return res
         .status(403)
         .json({ message: "You can only edit your own posts" });
     }
 
-    Object.assign(post, req.body, { updatedAt: new Date() });
+    // postType অনুযায়ী update
+    if (post.postType === "post" && req.body.content) {
+      Object.assign(post.content, req.body.content);
+    }
+    if (post.postType === "question" && req.body.question) {
+      Object.assign(post.question, req.body.question);
+    }
+    if (post.postType === "course" && req.body.course) {
+      Object.assign(post.course, req.body.course);
+    }
+
+    if (req.body.privacy) post.privacy = req.body.privacy;
 
     const updatedPost = await post.save();
     await updatedPost.populate("userid", "name badges username profileImage");
 
-    res.json(updatedPost);
+    res.json({ success: true, post: updatedPost });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
 };
 
-// 🟢 Delete post by _id
+// ===================== DELETE POST =====================
 export const deletePost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
-
     if (!post) return res.status(404).json({ message: "Post not found" });
 
-    // Owner check
     if (req.user.id.toString() !== post.userid.toString()) {
       return res
         .status(403)
@@ -217,121 +358,24 @@ export const deletePost = async (req, res) => {
     }
 
     await Post.findByIdAndDelete(req.params.id);
-
     res.json({ message: "Post deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// 🟢 Get single post by MongoDB _id with user info
-export const getPostByMongoId = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // ✅ Validate MongoDB ObjectId
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "Invalid post id" });
-    }
-
-    const post = await Post.findById(id)
-      .populate("userid", "name username badges bio profileImage gender")
-      .exec();
-
-    if (!post) {
-      return res.status(404).json({ message: "Post not found" });
-    }
-
-    res.json(post);
-  } catch (err) {
-    console.error("Get post by _id error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-// 🟢 Create share post (caption only)
-export const createSharePost = async (req, res) => {
-  try {
-    // 🔐 Auth check
-    if (!req.user || !req.user.id) {
-      return res.status(401).json({ message: "Login required" });
-    }
-
-    const { parentPost, caption, privacy } = req.body;
-
-    // ❌ parentPost missing
-    if (!parentPost) {
-      return res.status(400).json({
-        message: "parentPost is required to share a post",
-      });
-    }
-
-    // ❌ Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(parentPost)) {
-      return res.status(400).json({ message: "Invalid parent post id" });
-    }
-
-    // 🔍 Check original post exists
-    const originalPost = await Post.findById(parentPost);
-    if (!originalPost) {
-      return res.status(404).json({ message: "Original post not found" });
-    }
-
-    // 🚫 Media not allowed in share
-    if (req.files && req.files.length > 0) {
-      return res.status(400).json({
-        message: "Media upload is not allowed for share post",
-      });
-    }
-
-    // 🆕 Create share post
-    const sharePost = await Post.create({
-      userid: req.user.id,
-      postType: "share",
-      content: {
-        parentPost: parentPost,
-        caption: caption || "",
-      },
-      privacy: privacy || "public",
-    });
-
-    // 🔥 Increase share count (optional but recommended)
-    await Post.findByIdAndUpdate(parentPost, {
-      $inc: { sharesCount: 1 },
-    });
-
-    await sharePost.populate("userid", "name username badges profileImage");
-
-    res.status(201).json({
-      success: true,
-      post: sharePost,
-    });
-  } catch (error) {
-    console.error("Share post error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// 🟢 Get total post count by specific userid
+// ===================== GET POST COUNT BY USERID =====================
 export const getPostCountByUserId = async (req, res) => {
   try {
-    const userId = req.params.userid;
+    const { userid } = req.params;
 
-    if (!userId) {
+    if (!userid) {
       return res.status(400).json({ message: "UserId is required" });
     }
 
-    const count = await Post.countDocuments({ userid: userId });
-
-    return res.status(200).json({
-      userid: userId,
-      count,
-    });
+    const count = await Post.countDocuments({ userid });
+    return res.status(200).json({ userid, count });
   } catch (err) {
-    console.error(err);
     return res.status(500).json({ message: "Server error" });
   }
 };

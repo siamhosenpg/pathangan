@@ -43,22 +43,38 @@ export const updateUser = async (req, res) => {
         .status(403)
         .json({ message: "You can only edit your own profile" });
 
+    const updateData = {};
+
+    // সাধারণ fields
     const allowedFields = [
       "name",
       "username",
       "bio",
       "aboutText",
       "gender",
-      "work",
       "location",
-      "educations", // FE field name
     ];
-
-    const updateData = {};
-
     allowedFields.forEach((field) => {
       if (req.body[field] !== undefined) updateData[field] = req.body[field];
     });
+
+    // work — JSON string হিসেবে আসবে, parse করতে হবে
+    if (req.body.work) {
+      try {
+        updateData.work = JSON.parse(req.body.work);
+      } catch {
+        return res.status(400).json({ message: "Invalid work data" });
+      }
+    }
+
+    // educations — JSON string হিসেবে আসবে, parse করতে হবে
+    if (req.body.educations) {
+      try {
+        updateData.educations = JSON.parse(req.body.educations);
+      } catch {
+        return res.status(400).json({ message: "Invalid educations data" });
+      }
+    }
 
     // password update
     if (req.body.password) {
@@ -85,7 +101,7 @@ export const updateUser = async (req, res) => {
     const updatedUser = await User.findByIdAndUpdate(
       user._id,
       { $set: updateData },
-      { new: true }
+      { new: true },
     ).select("-password");
 
     res
@@ -149,7 +165,7 @@ export const getSuggestedUsers = async (req, res) => {
 
     // 1️⃣ Find all users I already follow
     const followingList = await Follow.find({ follower: loggedUserId }).select(
-      "following"
+      "following",
     );
 
     const followingIds = followingList.map((item) => item.following.toString());

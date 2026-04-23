@@ -11,6 +11,6 @@ export const baseApi = createApi({
       return headers;
     },
   }),
-  tagTypes: ["User"], // cache invalidation এর জন্য
+  tagTypes: ["Post", "User"], // cache invalidation এর জন্য
   endpoints: () => ({}),
 });

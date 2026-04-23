@@ -33,15 +33,17 @@ export default function RegisterForm() {
   };
 
   const errorMessage =
-    error && "message" in error ? (error as { message: string }).message : null;
+    error && "data" in error
+      ? (error.data as { message: string })?.message
+      : null;
 
   return (
-    <div className="min-h-screen w-full flex ">
+    <div className="min-h-screen w-full flex">
       {/* ===== LEFT SIDE ===== */}
-      <div className="hidden lg:flex w-1/2 relative bg-gradient-to-br from-[#0f0c29] via-[#302b63] to-[#24243e] flex-col items-center justify-center px-16 overflow-hidden">
+      <div className="hidden lg:flex w-1/2 relative bg-accent/10 flex-col items-center justify-center px-16 overflow-hidden">
         {/* blobs */}
-        <div className="absolute top-[-80px] left-[-80px] w-[350px] h-[350px] bg-purple-600 opacity-20 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-60px] right-[-60px] w-[300px] h-[300px] bg-blue-500 opacity-20 rounded-full blur-[100px]" />
+        <div className="absolute z-10 top-[-80px] left-[-80px] w-[350px] h-[350px] bg-purple-600 opacity-20 rounded-full blur-[120px]" />
+        <div className="absolute z-10 bottom-[-60px] right-[-60px] w-[300px] h-[300px] bg-blue-500 opacity-20 rounded-full blur-[100px]" />
 
         <div className="relative z-10 flex flex-col items-start gap-10 w-full max-w-md">
           {/* logo */}
@@ -64,13 +66,11 @@ export default function RegisterForm() {
 
           {/* headline */}
           <div className="flex flex-col gap-4">
-            <h1 className="text-4xl xl:text-5xl font-extrabold text-white leading-tight">
+            <h1 className="text-3xl xl:text-5xl font-extrabold text-text leading-tight">
               আজই শুরু করুন <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">
-                আপনার যাত্রা
-              </span>
+              <span className="text-text-secondary">আপনার যাত্রা</span>
             </h1>
-            <p className="text-white/60 text-base leading-relaxed">
+            <p className="text-text-secondary text-base leading-relaxed">
               বিনামূল্যে অ্যাকাউন্ট খুলুন এবং লক্ষ মানুষের সাথে যুক্ত হন। আপনার
               গল্প বলার সময় এখনই।
             </p>
@@ -85,12 +85,12 @@ export default function RegisterForm() {
             ].map((item, i) => (
               <div
                 key={i}
-                className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-xl px-4 py-3"
+                className="flex items-center gap-3 bg-white/25 border border-border rounded-xl px-4 py-3"
               >
-                <span className="text-purple-400 font-bold text-sm shrink-0">
+                <span className="text-accent font-bold text-sm shrink-0">
                   {item.step}
                 </span>
-                <span className="text-white/70 text-sm">{item.text}</span>
+                <span className="text-text-secondary text-sm">{item.text}</span>
               </div>
             ))}
           </div>
@@ -98,14 +98,16 @@ export default function RegisterForm() {
       </div>
 
       {/* ===== RIGHT SIDE ===== */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-[#0d0d0d] px-6 py-12">
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-background px-6 py-12">
         <div className="w-full max-w-md flex flex-col gap-7">
           {/* heading */}
           <div className="flex flex-col gap-2">
-            <h2 className="text-3xl font-bold text-white">
+            <h2 className="text-3xl font-bold text-text">
               অ্যাকাউন্ট খুলুন ✨
             </h2>
-            <p className="text-white/40 text-sm">নিচের তথ্যগুলো পূরণ করুন</p>
+            <p className="text-text-secondary text-sm">
+              নিচের তথ্যগুলো পূরণ করুন
+            </p>
           </div>
 
           {/* error */}
@@ -132,18 +134,18 @@ export default function RegisterForm() {
 
           {/* form */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            {/* username + name — row */}
+            {/* username + name row */}
             <div className="flex gap-3">
               {/* username */}
               <div className="flex flex-col gap-2 w-1/2">
-                <label className="text-white/60 text-sm">ইউজারনেম</label>
-                <div className="flex items-center bg-white/5 border border-white/10 rounded-xl px-3 gap-2 focus-within:border-purple-500 transition-colors">
+                <label className="text-text text-sm">ইউজারনেম</label>
+                <div className="flex items-center bg-white/5 border border-border rounded-xl px-3 gap-2 focus-within:border-accent transition-colors">
                   <svg
                     width="16"
                     height="16"
                     viewBox="0 0 24 24"
                     fill="none"
-                    className="text-white/30 shrink-0"
+                    className="text-text shrink-0"
                   >
                     <path
                       d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
@@ -166,21 +168,21 @@ export default function RegisterForm() {
                     onChange={handleChange}
                     required
                     placeholder="john_doe"
-                    className="w-full bg-transparent py-3.5 text-white text-sm placeholder:text-white/20 outline-none"
+                    className="w-full bg-transparent py-3.5 text-text text-sm placeholder:text-text/30 outline-none"
                   />
                 </div>
               </div>
 
               {/* name */}
               <div className="flex flex-col gap-2 w-1/2">
-                <label className="text-white/60 text-sm">পুরো নাম</label>
-                <div className="flex items-center bg-white/5 border border-white/10 rounded-xl px-3 gap-2 focus-within:border-purple-500 transition-colors">
+                <label className="text-text text-sm">পুরো নাম</label>
+                <div className="flex items-center bg-white/5 border border-border rounded-xl px-3 gap-2 focus-within:border-accent transition-colors">
                   <svg
                     width="16"
                     height="16"
                     viewBox="0 0 24 24"
                     fill="none"
-                    className="text-white/30 shrink-0"
+                    className="text-text shrink-0"
                   >
                     <path
                       d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
@@ -209,7 +211,7 @@ export default function RegisterForm() {
                     onChange={handleChange}
                     required
                     placeholder="John Doe"
-                    className="w-full bg-transparent py-3.5 text-white text-sm placeholder:text-white/20 outline-none"
+                    className="w-full bg-transparent py-3.5 text-text text-sm placeholder:text-text/30 outline-none"
                   />
                 </div>
               </div>
@@ -217,14 +219,14 @@ export default function RegisterForm() {
 
             {/* email */}
             <div className="flex flex-col gap-2">
-              <label className="text-white/60 text-sm">ইমেইল</label>
-              <div className="flex items-center bg-white/5 border border-white/10 rounded-xl px-4 gap-3 focus-within:border-purple-500 transition-colors">
+              <label className="text-text text-sm">ইমেইল</label>
+              <div className="flex items-center bg-white/5 border border-border rounded-xl px-4 gap-3 focus-within:border-accent transition-colors">
                 <svg
                   width="18"
                   height="18"
                   viewBox="0 0 24 24"
                   fill="none"
-                  className="text-white/30 shrink-0"
+                  className="text-text shrink-0"
                 >
                   <path
                     d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
@@ -244,21 +246,21 @@ export default function RegisterForm() {
                   onChange={handleChange}
                   required
                   placeholder="আপনার ইমেইল লিখুন"
-                  className="w-full bg-transparent py-4 text-white text-sm placeholder:text-white/20 outline-none"
+                  className="w-full bg-transparent py-4 text-text text-sm placeholder:text-text/30 outline-none"
                 />
               </div>
             </div>
 
             {/* password */}
             <div className="flex flex-col gap-2">
-              <label className="text-white/60 text-sm">পাসওয়ার্ড</label>
-              <div className="flex items-center bg-white/5 border border-white/10 rounded-xl px-4 gap-3 focus-within:border-purple-500 transition-colors">
+              <label className="text-text text-sm">পাসওয়ার্ড</label>
+              <div className="flex items-center bg-white/5 border border-border rounded-xl px-4 gap-3 focus-within:border-accent transition-colors">
                 <svg
                   width="18"
                   height="18"
                   viewBox="0 0 24 24"
                   fill="none"
-                  className="text-white/30 shrink-0"
+                  className="text-text shrink-0"
                 >
                   <rect
                     x="3"
@@ -284,12 +286,12 @@ export default function RegisterForm() {
                   required
                   minLength={6}
                   placeholder="কমপক্ষে ৬ অক্ষর"
-                  className="w-full bg-transparent py-4 text-white text-sm placeholder:text-white/20 outline-none"
+                  className="w-full bg-transparent py-4 text-text text-sm placeholder:text-text/30 outline-none"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="text-white/30 hover:text-white/60 transition-colors shrink-0"
+                  className="text-text hover:text-text-secondary transition-colors shrink-0"
                 >
                   {showPassword ? (
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -339,7 +341,7 @@ export default function RegisterForm() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold text-sm hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+              className="w-full py-4 rounded-xl bg-accent text-white font-semibold text-sm hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
             >
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -375,17 +377,17 @@ export default function RegisterForm() {
 
           {/* divider */}
           <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-white/10" />
-            <span className="text-white/20 text-xs">অথবা</span>
-            <div className="flex-1 h-px bg-white/10" />
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-text-secondary text-xs">অথবা</span>
+            <div className="flex-1 h-px bg-border" />
           </div>
 
           {/* login link */}
-          <p className="text-center text-white/40 text-sm">
+          <p className="text-center text-text-secondary text-sm">
             আগে থেকেই অ্যাকাউন্ট আছে?{" "}
             <Link
               href="/login"
-              className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
+              className="text-accent hover:opacity-80 font-medium transition-opacity"
             >
               লগইন করুন
             </Link>

@@ -1,3 +1,19 @@
+export interface WorkEntry {
+  _id?: string;
+  industry: string;
+  position: string;
+  duration: string;
+  status: "running" | "closed";
+}
+
+export interface EducationEntry {
+  _id?: string;
+  institution: string;
+  degree: string;
+  duration: string;
+  status: "running" | "completed";
+}
+
 export interface User {
   _id: string;
   userid: number;
@@ -7,9 +23,9 @@ export interface User {
   bio?: string;
   aboutText?: string;
   gender?: string;
-  work?: string;
   location?: string;
-  educations?: string[];
+  work?: WorkEntry[]; // ← array of objects
+  educations?: EducationEntry[]; // ← array of objects
   profileImage?: string;
   coverImage?: string;
   role?: string;
@@ -27,7 +43,7 @@ export interface GetUserResponse {
 
 export interface UpdateUserRequest {
   userid: number;
-  formData: FormData; // image upload er jonno FormData
+  formData: FormData;
 }
 
 export interface SuggestedUsersResponse {

@@ -28,8 +28,9 @@ export default function LoginForm() {
   };
 
   const errorMessage =
-    error && "message" in error ? (error as { message: string }).message : null;
-
+    error && "data" in error
+      ? (error.data as { message: string })?.message
+      : null;
   return (
     <div className="min-h-screen w-full flex ">
       {/* ===== LEFT SIDE ===== */}
@@ -281,12 +282,12 @@ export default function LoginForm() {
           {/* divider */}
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-white/10" />
-            <span className="text-white/20 text-xs">অথবা</span>
+            <span className="text-text text-xs">অথবা</span>
             <div className="flex-1 h-px bg-white/10" />
           </div>
 
           {/* register link */}
-          <p className="text-center text-white/40 text-sm">
+          <p className="text-center text-text-secondary text-sm">
             অ্যাকাউন্ট নেই?{" "}
             <Link
               href="/register"

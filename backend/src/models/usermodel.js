@@ -71,8 +71,30 @@ const UserSchema = new Schema(
       trim: true,
       maxlength: [300, "Bio সর্বোচ্চ 300 অক্ষরের হতে পারবে"],
     },
-    work: { type: [String], trim: true },
-    educations: { type: [String], trim: true },
+    work: [
+      {
+        industry: { type: String, trim: true },
+        position: { type: String, trim: true },
+        duration: { type: String, trim: true },
+        status: {
+          type: String,
+          enum: ["running", "closed"],
+          default: "running",
+        },
+      },
+    ],
+    educations: [
+      {
+        institution: { type: String, trim: true },
+        degree: { type: String, trim: true },
+        duration: { type: String, trim: true },
+        status: {
+          type: String,
+          enum: ["running", "completed"],
+          default: "completed",
+        },
+      },
+    ],
     aboutText: {
       type: String,
       trim: true,

@@ -2,7 +2,7 @@
 
 :root {
   --accent: #00914d;
-  --accent-secondary: #00d672;
+  --accent-secondary: #9ef1cf;
   --accent-transprant: #09330946;
   --text: #1b1b1b;
   --text-secondary: #3a3a3a;
@@ -19,6 +19,8 @@
 
 @theme inline {
   --color-accent: var(--accent);
+  --color-accent-secondary: var(--accent-secondary);
+
   --color-accent-transprant: var(--accent-transprant);
   --color-text: var(--text);
   --color-text-secondary: var(--text-secondary);
