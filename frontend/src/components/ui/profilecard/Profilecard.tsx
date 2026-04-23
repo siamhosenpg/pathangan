@@ -8,7 +8,10 @@ interface UserProps {
 
 const Profilecard = ({ user }: UserProps) => {
   return (
-    <div className="p-2 pr-3 w-full flex items-center justify-between bg-background hover:bg-accent/10 duration-200 transition-all rounded-xl">
+    <div
+      key={user._id}
+      className="p-2 pr-3 w-full flex items-center justify-between bg-background hover:bg-accent/10 duration-200 transition-all rounded-xl"
+    >
       <div className="flex items-center gap-2.5 w-4/6 ">
         <div className="w-13 h-13 rounded-full border border-border shrink">
           {user.profileImage ? (

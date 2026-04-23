@@ -1,75 +1,82 @@
 import React from "react";
-import PostProfiletop from "../postcard/PostProfiletop";
-
-import { MdBookmarkBorder, MdBookmark } from "react-icons/md";
+import { MdBookmarkBorder } from "react-icons/md";
 import { HiDotsHorizontal } from "react-icons/hi";
 import BanglaNumber from "../../extra/Banglanumber";
 import Image from "next/image";
 import LikeButton from "../postcard/LikeButton";
 import CommentsButton from "../postcard/CommentsButton";
 import ShareButton from "../postcard/ShareButton";
-const CourseCardFeed = () => {
+import type { Post } from "@/types/postTypes";
+import PostCountleft from "../postcard/PostCountleft";
+
+interface Props {
+  post: Post;
+}
+
+const CourseCardFeed = ({ post }: Props) => {
+  const { userid, course, likesCount, commentsCount, sharesCount, createdAt } =
+    post;
+  const thumbnail = course?.media?.find((m) => m.type === "image")?.url;
+
   return (
-    <div className="bg-background  rounded-xl">
+    <div className="bg-background rounded-xl">
+      {/* thumbnail */}
       <div className="p-4">
-        <div className="w-full rounded-xl overflow-hidden ">
-          <Image
-            width={600}
-            height={600}
-            alt=""
-            className="w-full aspect-video object-cover border-t border-b border rounded-xl border-border "
-            src="/image/course.jpg"
-          />
+        <div className="w-full rounded-xl overflow-hidden">
+          {thumbnail ? (
+            <Image
+              width={600}
+              height={600}
+              alt={course?.title || ""}
+              className="w-full aspect-video object-cover border-t border-b border rounded-xl border-border"
+              src={thumbnail}
+            />
+          ) : (
+            <div className="w-full aspect-video rounded-xl bg-accent/10 flex items-center justify-center border border-border">
+              <span className="text-text-secondary text-sm">ছবি নেই</span>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* course info */}
       <div className="flex gap-4 px-6">
-        <div className="w-12 h-12 rounded-full border-border border shrink-0 overflow-hidden">
-          <Image
-            width={600}
-            height={600}
-            alt=""
-            className="w-full h-full  rounded-full "
-            src="/image/hero.jpg"
-          />
+        <div className="w-12 h-12 rounded-full border-border border shrink-0 overflow-hidden bg-accent/20">
+          {userid.profileImage ? (
+            <Image
+              width={600}
+              height={600}
+              alt={userid.name}
+              className="w-full h-full rounded-full object-cover"
+              src={userid.profileImage}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-accent font-bold">
+              {userid.name?.charAt(0).toUpperCase()}
+            </div>
+          )}
         </div>
-        <div className="w-full ">
-          <h3 className=" line-clamp-2">
-            আমাদের প্রশ্নের উত্তর হল যে জ্ঞান এবং শিক্ষা আমাদের জীবনের সবচেয়ে
-            গুরুত্বপূর্ণ অংশ। এটি আমাদের ভবিষ্যৎ গড়তে, সমাজে অবদান রাখতে এবং
-            সফল হতে সাহায্য করে।
-          </h3>
+
+        <div className="w-full">
+          <h3 className="line-clamp-2">{course?.title}</h3>
           <div className="flex items-center gap-2">
-            <h3 className="text-sm">সিয়াম হোসেন</h3>
-            <span className="text-sm text-text-tertiary">৪৯ জন বেত্তি</span>
+            <h3 className="text-sm">{userid.name}</h3>
+            <span className="text-sm text-text-secondary">
+              {course?.price === 0 ? "বিনামূল্যে" : `৳${course?.price}`}
+            </span>
           </div>
         </div>
       </div>
 
-      <div className="mt-2">
-        <div className="px-6 py-1 flex items-center gap-3 border-b border-border">
-          <div className="flex items-center gap-1.5">
-            <span className="font-medium">
-              <BanglaNumber value={54} />
-            </span>
-            <span className="text-sm">সমর্থন</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="font-medium">
-              <BanglaNumber value={54} />
-            </span>
-            <span className="text-sm">মতামত </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="font-medium">
-              <BanglaNumber value={54} />
-            </span>
-            <span className="text-sm">প্রচার</span>
-          </div>
+      {/* counts + actions */}
+      <div className="mt-2 ">
+        <div className="px-6 py-1 border-b border-border">
+          <PostCountleft postId={post._id} />
         </div>
 
         <div className="px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <LikeButton />
+            <LikeButton postId={post._id} />
             <CommentsButton />
             <ShareButton />
           </div>
@@ -77,7 +84,7 @@ const CourseCardFeed = () => {
             <button className="bg-accent text-white font-medium px-4 py-1.5 rounded-lg">
               বার্তা পাঠান
             </button>
-            <button className="  flex items-center gap-1.5  ">
+            <button className="flex items-center gap-1.5">
               <HiDotsHorizontal size={20} />
             </button>
           </div>

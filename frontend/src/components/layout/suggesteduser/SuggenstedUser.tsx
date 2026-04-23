@@ -25,7 +25,7 @@ const SuggenstedUser = () => {
             </div>
           ))}
       {data?.users.map((user) => (
-        <Profilecard user={user} />
+        <Profilecard key={user._id} user={user} />
       ))}
     </div>
   );

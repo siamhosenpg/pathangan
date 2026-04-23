@@ -1,7 +1,5 @@
+import HomeFeed from "@/components/layout/feed/HomeFeed";
 import SuggenstedUser from "@/components/layout/suggesteduser/SuggenstedUser";
-import CourseCardFeed from "@/components/ui/card/course/CourseCardFeed";
-import Postcard from "@/components/ui/card/postcard/Postcard";
-import QuestionCard from "@/components/ui/card/questioncard/QuestionCard";
 
 export default function Home() {
   return (
@@ -9,9 +7,7 @@ export default function Home() {
       <div className="flex gap-6 ">
         {/* Main Content */}
         <div className="flex-1 w-[44%]  flex gap-4 flex-col pb-18 ">
-          <Postcard />
-          <CourseCardFeed />
-          <QuestionCard />
+          <HomeFeed />
         </div>
 
         {/* Right Sidebar */}
