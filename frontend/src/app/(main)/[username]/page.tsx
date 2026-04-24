@@ -1,5 +1,6 @@
 import HomeFeed from "@/components/layout/feed/HomeFeed";
 import ProfileAbout from "@/components/layout/profilepage/ProfileAbout";
+import ProfilePosts from "@/components/layout/profilepage/ProfileFeedarea";
 import ProfileTopSection from "@/components/layout/profilepage/ProfileTopSection";
 import CourseCard from "@/components/ui/card/course/CourseCard";
 
@@ -31,7 +32,7 @@ const page = async ({ params }: Props) => {
         <ProfileTopSection data={user} />
 
         <ProfileAbout educations={user.educations} work={user.work} />
-        <HomeFeed />
+        <ProfilePosts userid={user._id} />
       </div>
       <div className="p-4 bg-background w-5/12 rounded-xl h-fit flex flex-col gap-4">
         <CourseCard />

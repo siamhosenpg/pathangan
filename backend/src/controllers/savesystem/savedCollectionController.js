@@ -24,7 +24,7 @@ export const getDefaultCollection = async (req, res) => {
     }
 
     res.json({
-      collectionId: defaultCollection._id,
+      _id: defaultCollection._id,
       name: defaultCollection.name,
       default: defaultCollection.default,
     });
@@ -83,7 +83,7 @@ export const updateCollection = async (req, res) => {
     const updated = await SavedCollection.findOneAndUpdate(
       { _id: req.params.id, userId: req.user.id }, // Only own folder
       { name: req.body.name },
-      { new: true }
+      { new: true },
     );
 
     if (!updated) {

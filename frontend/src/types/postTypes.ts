@@ -47,6 +47,7 @@ export interface CoursePost {
 // ===================== MAIN POST =====================
 export interface Post {
   _id: string;
+  id: string;
   userid: PostUser;
   postType: "post" | "question" | "course";
   content?: PostContent;

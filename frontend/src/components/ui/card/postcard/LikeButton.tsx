@@ -1,5 +1,5 @@
 import React from "react";
-import { FaRegHeart } from "react-icons/fa6";
+import { FaRegHeart, FaHeart } from "react-icons/fa6";
 
 import {
   useToggleReactionMutation,
@@ -26,16 +26,21 @@ const LikeButton = ({ postId }: { postId: string }) => {
       disabled={isLoading}
       className="flex items-center gap-1.5 transition-all duration-200"
     >
-      <FaRegHeart
-        size={19}
-        className={`block transition-all duration-200 ${
-          isLiked ? "text-green-500 scale-110" : "text-gray-600"
-        }`}
-      />
+      {isLiked ? (
+        <FaHeart
+          size={19}
+          className={`block transition-all duration-200 text-accent `}
+        />
+      ) : (
+        <FaRegHeart
+          size={19}
+          className={`block transition-all duration-200 `}
+        />
+      )}
 
       <span
         className={`font-medium block transition-all duration-200 ${
-          isLiked ? "text-green-500" : "text-gray-700"
+          isLiked ? "text-accent" : "text-text"
         }`}
       >
         সমর্থন

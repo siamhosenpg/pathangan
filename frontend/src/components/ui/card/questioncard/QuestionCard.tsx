@@ -8,6 +8,7 @@ import AnswerButton from "../postcard/AnswerButton";
 import BanglaNumber from "../../extra/Banglanumber";
 import type { Post } from "@/types/postTypes";
 import PostCountleft from "../postcard/PostCountleft";
+import BookmarkButton from "../../buttons/BookmarkButton";
 
 interface Props {
   post: Post;
@@ -40,9 +41,7 @@ const QuestionCard = ({ post }: Props) => {
           <AnswerButton />
           <ShareButton />
         </div>
-        <button className="flex items-center gap-1.5">
-          <MdBookmarkBorder size={21} />
-        </button>
+        <BookmarkButton postId={post._id} />
       </div>
     </div>
   );
