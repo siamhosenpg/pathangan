@@ -1,8 +1,13 @@
 import React from "react";
 import { FaRegComment } from "react-icons/fa6";
-const CommentsButton = () => {
+
+interface Props {
+  onClick?: () => void;
+}
+
+const CommentsButton = ({ onClick }: Props) => {
   return (
-    <button className="  flex items-center gap-1.5  ">
+    <button onClick={onClick} className="  flex items-center gap-1.5  ">
       <FaRegComment size={19} />
       <span className=" font-medium block ">মতামত</span>
     </button>

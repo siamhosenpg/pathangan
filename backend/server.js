@@ -16,6 +16,7 @@ import { initSocket } from "./src/socket/socket.js";
 // Import routes (must include .js extension)
 import authRoutes from "./src/routes/authRoutes.js";
 import postsRoute from "./src/routes/postsroute.js";
+import answerRoutes from "./src/routes/answer/answerRoutes.js";
 import usersRoute from "./src/routes/usersroute.js";
 import reactionRoutes from "./src/routes/reactionRoutes.js";
 import commentRoutes from "./src/routes/commentRoutes.js";
@@ -63,6 +64,7 @@ app.use(cookieParser());
 // Use routes
 app.use("/posts", postsRoute);
 app.use("/users", usersRoute);
+app.use("/answers", answerRoutes);
 app.use("/auth", authRoutes);
 app.use("/reactions", reactionRoutes);
 app.use("/comments", commentRoutes);

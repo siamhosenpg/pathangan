@@ -9,6 +9,8 @@ import ShareButton from "../postcard/ShareButton";
 import type { Post } from "@/types/postTypes";
 import PostCountleft from "../postcard/PostCountleft";
 
+import { useRouter } from "next/navigation";
+
 interface Props {
   post: Post;
 }
@@ -17,12 +19,15 @@ const CourseCardFeed = ({ post }: Props) => {
   const { userid, course, likesCount, commentsCount, sharesCount, createdAt } =
     post;
   const thumbnail = course?.media?.find((m) => m.type === "image")?.url;
-
+  const router = useRouter();
   return (
     <div className="bg-background rounded-xl">
       {/* thumbnail */}
       <div className="p-4">
-        <div className="w-full rounded-xl overflow-hidden">
+        <div
+          onClick={() => router.push(`/course/${post._id}`)}
+          className="w-full rounded-xl overflow-hidden"
+        >
           {thumbnail ? (
             <Image
               width={600}

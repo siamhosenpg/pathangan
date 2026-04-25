@@ -7,26 +7,26 @@ import {
   deleteComment,
   getRepliesByComment,
 } from "../controllers/commentController.js";
-
 import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// ===============================
+// count
 router.get("/count/:postId", getCommentsCount);
 
-// Create comment
-router.post("/", protect, createComment);
+// replies — /:postId এর আগে থাকতে হবে
+router.get("/replies/:commentId", getRepliesByComment);
 
-// Get comments of a post (with pagination)
+// get comments of a post
 router.get("/:postId", getCommentsByPost);
 
-// Update comment
+// create
+router.post("/", protect, createComment);
+
+// update
 router.put("/:commentId", protect, updateComment);
 
-// Delete comment
+// delete
 router.delete("/:commentId", protect, deleteComment);
-// Get replies of a specific comment
-router.get("/replies/:commentId", getRepliesByComment);
 
 export default router;

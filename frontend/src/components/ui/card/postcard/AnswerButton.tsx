@@ -1,8 +1,17 @@
 import React from "react";
 import { LuFilePenLine } from "react-icons/lu";
-const AnswerButton = () => {
+import { useRouter } from "next/navigation";
+interface Props {
+  onClick?: () => void;
+}
+
+const AnswerButton = ({ onClick }: Props) => {
+  const router = useRouter();
   return (
-    <button className="  flex items-center gap-1.5  ">
+    <button
+      onClick={onClick}
+      className="  flex items-center gap-1.5   cursor-pointer "
+    >
       <LuFilePenLine size={19} />
       <span className=" font-medium block">উত্তর</span>
     </button>

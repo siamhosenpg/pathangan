@@ -1,23 +1,32 @@
 import Image from "next/image";
-import { MdBookmarkBorder } from "react-icons/md";
 import LikeButton from "./LikeButton";
 import CommentsButton from "./CommentsButton";
 import ShareButton from "./ShareButton";
 import PostProfiletop from "./PostProfiletop";
-import BanglaNumber from "../../extra/Banglanumber";
 import type { Post } from "@/types/postTypes";
 import PostCountleft from "./PostCountleft";
 import { useState } from "react";
 import BookmarkButton from "../../buttons/BookmarkButton";
 
+import { useRouter, usePathname } from "next/navigation";
 interface Props {
   post: Post;
 }
 
 const Postcard = ({ post }: Props) => {
+  const router = useRouter();
   const { userid, content, createdAt } = post;
   const [expanded, setExpanded] = useState(false);
 
+  const pathname = usePathname();
+  const handleGoToPost = () => {
+    const targetPath = `/post/${post._id}`;
+
+    // যদি already ওই post page এ থাকো → কিছুই করবে না
+    if (pathname === targetPath) return;
+
+    router.push(targetPath);
+  };
   return (
     <div className="bg-background pt-6 rounded-xl">
       <PostProfiletop user={userid} createdAt={createdAt} />
@@ -53,6 +62,7 @@ const Postcard = ({ post }: Props) => {
               />
             ) : (
               <div
+                onClick={handleGoToPost}
                 className={`grid gap-0.5 mt-1 ${content.media.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}
               >
                 {content.media.map((url, i) => (
@@ -79,7 +89,7 @@ const Postcard = ({ post }: Props) => {
         <div className="px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <LikeButton postId={post._id} />
-            <CommentsButton />
+            <CommentsButton onClick={handleGoToPost} />
             <ShareButton />
           </div>
           {post._id && <BookmarkButton postId={post._id} />}
