@@ -2,6 +2,7 @@ import React from "react";
 import FollowButton from "../buttons/FollowButton";
 import type { User } from "@/types/usertypes";
 import Image from "next/image";
+import Link from "next/link";
 interface UserProps {
   user: User;
 }
@@ -13,7 +14,10 @@ const Profilecard = ({ user }: UserProps) => {
       className="p-2 pr-3 w-full flex items-center justify-between bg-background hover:bg-accent/10 duration-200 transition-all rounded-xl"
     >
       <div className="flex items-center gap-2.5 w-4/6 ">
-        <div className="w-13 h-13 rounded-full border border-border shrink">
+        <Link
+          href={`/${user.username}`}
+          className="w-13 h-13 rounded-full border border-border shrink"
+        >
           {user.profileImage ? (
             <Image
               alt="profile"
@@ -29,7 +33,7 @@ const Profilecard = ({ user }: UserProps) => {
               </span>
             </div>
           )}
-        </div>
+        </Link>
         <div>
           <h5>{user?.name}</h5>
           {user?.bio && (
@@ -40,7 +44,7 @@ const Profilecard = ({ user }: UserProps) => {
         </div>
       </div>
       <div className=" shrink-0 ">
-        <FollowButton />
+        <FollowButton targetUserId={user._id} />
       </div>
     </div>
   );

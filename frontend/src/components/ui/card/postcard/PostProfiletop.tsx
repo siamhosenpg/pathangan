@@ -51,7 +51,7 @@ const PostProfiletop = ({ user, createdAt }: Props) => {
                 <HiBadgeCheck className="text-accent" />
               )}
             </h5>
-            <FollowButton />
+            <FollowButton targetUserId={user._id} />
           </div>
           <span className="block text-text-secondary -mt-0.5 text-sm">
             {getTimeAgo(createdAt)}

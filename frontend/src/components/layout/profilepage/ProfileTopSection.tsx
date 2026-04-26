@@ -3,6 +3,7 @@ import StarRating from "@/components/ui/star/StarRating";
 import Image from "next/image";
 import React from "react";
 import type { User } from "@/types/usertypes";
+import FollowStats from "./FollowStats";
 
 interface dataprops {
   data: User;
@@ -60,10 +61,13 @@ const ProfileTopSection = ({ data }: dataprops) => {
         </div>
 
         <div>
-          <FollowButton />
+          <FollowButton targetUserId={data._id} />
         </div>
       </div>
-
+      <div className="mt-3">
+        {" "}
+        <FollowStats userId={data._id} />
+      </div>
       {/* BIO + ABOUT */}
       <div className="mt-4 px-6">
         {data.bio && <h2 className="font-semibold text-lg">{data.bio}</h2>}
