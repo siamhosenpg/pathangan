@@ -13,27 +13,33 @@ const cookieOptions = {
 // ===================== REGISTER =====================
 export async function register(req, res) {
   try {
-    const { username, name, email, password } = req.body;
+    const { name, email, password } = req.body; // username সরানো হয়েছে
 
-    if (!username || !name || !email || !password)
+    if (!name || !email || !password)
       return res
         .status(400)
-        .json({ message: "Username, name, email and password are required" });
+        .json({ message: "Name, email and password are required" });
 
-    // Lowercase email for consistency
     const emailLower = email.toLowerCase();
 
-    // Check email exists
     const existing = await User.findOne({ email: emailLower });
     if (existing)
       return res.status(409).json({ message: "Email already in use" });
 
-    // Check username exists
-    const userNameExists = await User.findOne({ username });
-    if (userNameExists)
-      return res.status(409).json({ message: "Username already taken" });
+    // ── Username auto-generate (with unique check) ──
+    const baseUsername = name.toLowerCase().trim().split(/\s+/).join(""); // "Siam Hosen" → "siamhosen"
 
-    // Hash password
+    let username = "";
+    let isUnique = false;
+
+    while (!isUnique) {
+      const number = Math.floor(10 + Math.random() * 9990); // 10–9999
+      username = `${baseUsername}${number}`; // "siamhosen4823"
+      const taken = await User.findOne({ username });
+      if (!taken) isUnique = true;
+    }
+    // ────────────────────────────────────────────────
+
     const salt = await bcrypt.genSalt(10);
     const hashed = await bcrypt.hash(password, salt);
 
@@ -62,7 +68,6 @@ export async function register(req, res) {
     res.status(500).json({ message: "Server error" });
   }
 }
-
 // ===================== LOGIN =====================
 export async function login(req, res) {
   try {

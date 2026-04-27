@@ -11,8 +11,7 @@ export default function RegisterForm() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const [register, { isLoading, error }] = useRegisterMutation();
-  const [form, setForm] = useState<RegisterRequest>({
-    username: "",
+  const [form, setForm] = useState<Omit<RegisterRequest, "username">>({
     name: "",
     email: "",
     password: "",
@@ -41,12 +40,10 @@ export default function RegisterForm() {
     <div className="min-h-screen w-full flex">
       {/* ===== LEFT SIDE ===== */}
       <div className="hidden lg:flex w-1/2 relative bg-accent/10 flex-col items-center justify-center px-16 overflow-hidden">
-        {/* blobs */}
         <div className="absolute z-10 top-[-80px] left-[-80px] w-[350px] h-[350px] bg-purple-600 opacity-20 rounded-full blur-[120px]" />
         <div className="absolute z-10 bottom-[-60px] right-[-60px] w-[300px] h-[300px] bg-blue-500 opacity-20 rounded-full blur-[100px]" />
 
         <div className="relative z-10 flex flex-col items-start gap-10 w-full max-w-md">
-          {/* logo */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -64,7 +61,6 @@ export default function RegisterForm() {
             </span>
           </div>
 
-          {/* headline */}
           <div className="flex flex-col gap-4">
             <h1 className="text-3xl xl:text-5xl font-extrabold text-text leading-tight">
               আজই শুরু করুন <br />
@@ -76,7 +72,6 @@ export default function RegisterForm() {
             </p>
           </div>
 
-          {/* steps */}
           <div className="flex flex-col gap-4 w-full">
             {[
               { step: "০১", text: "অ্যাকাউন্ট তৈরি করুন — মাত্র ১ মিনিটে" },
@@ -100,7 +95,6 @@ export default function RegisterForm() {
       {/* ===== RIGHT SIDE ===== */}
       <div className="w-full lg:w-1/2 flex items-center justify-center bg-background px-6 py-12">
         <div className="w-full max-w-md flex flex-col gap-7">
-          {/* heading */}
           <div className="flex flex-col gap-2">
             <h2 className="text-3xl font-bold text-text">
               অ্যাকাউন্ট খুলুন ✨
@@ -110,7 +104,6 @@ export default function RegisterForm() {
             </p>
           </div>
 
-          {/* error */}
           {errorMessage && (
             <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-xl">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -132,88 +125,47 @@ export default function RegisterForm() {
             </div>
           )}
 
-          {/* form */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            {/* username + name row */}
-            <div className="flex gap-3">
-              {/* username */}
-              <div className="flex flex-col gap-2 w-1/2">
-                <label className="text-text text-sm">ইউজারনেম</label>
-                <div className="flex items-center bg-white/5 border border-border rounded-xl px-3 gap-2 focus-within:border-accent transition-colors">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    className="text-text shrink-0"
-                  >
-                    <path
-                      d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                    <circle
-                      cx="12"
-                      cy="7"
-                      r="4"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    />
-                  </svg>
-                  <input
-                    name="username"
-                    type="text"
-                    value={form.username}
-                    onChange={handleChange}
-                    required
-                    placeholder="john_doe"
-                    className="w-full bg-transparent py-3.5 text-text text-sm placeholder:text-text/30 outline-none"
+            {/* name — full width */}
+            <div className="flex flex-col gap-2">
+              <label className="text-text text-sm">পুরো নাম</label>
+              <div className="flex items-center bg-white/5 border border-border rounded-xl px-4 gap-3 focus-within:border-accent transition-colors">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className="text-text shrink-0"
+                >
+                  <path
+                    d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
                   />
-                </div>
-              </div>
-
-              {/* name */}
-              <div className="flex flex-col gap-2 w-1/2">
-                <label className="text-text text-sm">পুরো নাম</label>
-                <div className="flex items-center bg-white/5 border border-border rounded-xl px-3 gap-2 focus-within:border-accent transition-colors">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    className="text-text shrink-0"
-                  >
-                    <path
-                      d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                    <circle
-                      cx="9"
-                      cy="7"
-                      r="4"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    />
-                    <path
-                      d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <input
-                    name="name"
-                    type="text"
-                    value={form.name}
-                    onChange={handleChange}
-                    required
-                    placeholder="John Doe"
-                    className="w-full bg-transparent py-3.5 text-text text-sm placeholder:text-text/30 outline-none"
+                  <circle
+                    cx="9"
+                    cy="7"
+                    r="4"
+                    stroke="currentColor"
+                    strokeWidth="2"
                   />
-                </div>
+                  <path
+                    d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <input
+                  name="name"
+                  type="text"
+                  value={form.name}
+                  onChange={handleChange}
+                  required
+                  placeholder="আপনার পুরো নাম লিখুন"
+                  className="w-full bg-transparent py-4 text-text text-sm placeholder:text-text/30 outline-none"
+                />
               </div>
             </div>
 
@@ -375,14 +327,12 @@ export default function RegisterForm() {
             </button>
           </form>
 
-          {/* divider */}
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-border" />
             <span className="text-text-secondary text-xs">অথবা</span>
             <div className="flex-1 h-px bg-border" />
           </div>
 
-          {/* login link */}
           <p className="text-center text-text-secondary text-sm">
             আগে থেকেই অ্যাকাউন্ট আছে?{" "}
             <Link
