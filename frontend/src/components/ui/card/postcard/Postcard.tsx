@@ -43,7 +43,7 @@ const Postcard = ({ post }: Props) => {
             {content.text.length > 200 && (
               <span
                 onClick={() => setExpanded((prev) => !prev)}
-                className="text-sm block text-text-tertiary font-medium py-1 hover:underline mt-1"
+                className="text-sm block text-text-tertiary font-medium py-1 hover:underline mt-1 cursor-pointer"
               >
                 {expanded ? "আগের অবস্থায় আসুন" : "আরো পড়ুন"}
               </span>
@@ -63,7 +63,7 @@ const Postcard = ({ post }: Props) => {
             ) : (
               <div
                 onClick={handleGoToPost}
-                className={`grid gap-0.5 mt-1 ${content.media.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}
+                className={`grid gap-0.5 mt-1 ${content.media.length > 1 ? "grid-cols-2" : "grid-cols-1"} cursor-pointer active:scale-95 transition-transform`}
               >
                 {content.media.map((url, i) => (
                   <Image

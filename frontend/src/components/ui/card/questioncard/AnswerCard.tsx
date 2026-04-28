@@ -17,7 +17,7 @@ const AnswerCard = ({ answer, questionId }: Props) => {
   return (
     <div
       onClick={() => router.push(`/answer/${answer._id}`)}
-      className="flex gap-3 py-3 border border-border px-3 rounded-xl"
+      className="flex gap-3 py-3 border border-border px-3 rounded-xl cursor-pointer  active:scale-95  transition"
     >
       <div className="w-9 h-9 overflow-hidden rounded-full border-border border shrink-0 bg-background-tertiary">
         <img

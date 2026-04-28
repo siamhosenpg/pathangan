@@ -2,8 +2,10 @@ import React from "react";
 import Image from "next/image";
 import FollowButton from "../../buttons/FollowButton";
 import { HiBadgeCheck } from "react-icons/hi";
-import { HiDotsHorizontal } from "react-icons/hi";
+
 import type { PostUser } from "@/types/postTypes";
+import Link from "next/link";
+import PostThreeDot from "./PostThreeDot";
 
 interface Props {
   user: PostUser;
@@ -28,7 +30,10 @@ const PostProfiletop = ({ user, createdAt }: Props) => {
   return (
     <div className="top px-6 pb-1 flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <div className="w-12 h-12 rounded-full overflow-hidden border-border shrink-0 bg-accent/20">
+        <Link
+          href={`/${user.username}`}
+          className="w-12 h-12 rounded-full overflow-hidden border-border shrink-0 bg-accent/20"
+        >
           {user.profileImage ? (
             <Image
               width={80}
@@ -42,7 +47,7 @@ const PostProfiletop = ({ user, createdAt }: Props) => {
               {user.name?.charAt(0).toUpperCase()}
             </div>
           )}
-        </div>
+        </Link>
         <div>
           <div className="flex items-center gap-3">
             <h5 className="flex items-center gap-1.5">
@@ -59,7 +64,7 @@ const PostProfiletop = ({ user, createdAt }: Props) => {
         </div>
       </div>
       <div>
-        <HiDotsHorizontal size={19} />
+        <PostThreeDot postId={user._id} postAuthorId={user._id} />
       </div>
     </div>
   );
