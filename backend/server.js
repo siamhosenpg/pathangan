@@ -23,6 +23,9 @@ import commentRoutes from "./src/routes/commentRoutes.js";
 import followroutes from "./src/routes/followRoutes.js";
 import savedCollectionRoutes from "./src/routes/savesystem/savedCollectionroutes.js";
 import savedItemRoutes from "./src/routes/savesystem/savedItemroutes.js";
+
+import ratingRoutes from "./src/routes/rating/ratingRoutes.js";
+
 import notificationRoutes from "./src/routes/notification/notificationroutes.js";
 import searchRoutes from "./src/routes/otherroutes/searchRoute.js";
 import videoPostRoutes from "./src/routes/post/videopostroute.js";
@@ -71,6 +74,9 @@ app.use("/comments", commentRoutes);
 
 app.use("/follows", followroutes);
 app.use("/saves/collections", savedCollectionRoutes);
+
+app.use("/ratings", ratingRoutes);
+
 app.use("/items", savedItemRoutes);
 app.use("/notifications", notificationRoutes);
 app.use("/search", searchRoutes);

@@ -20,6 +20,7 @@ export const baseApi = createApi({
     "Comment",
     "Answer",
     "Follow",
+    "Rating",
   ], // cache invalidation এর জন্য
   endpoints: () => ({}),
 });
