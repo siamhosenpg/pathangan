@@ -6,6 +6,7 @@ import StarRating from "../star/StarRating";
 
 import { useAppSelector } from "@/redux/hooks";
 import Link from "next/link";
+import UserRating from "../star/UserRating";
 
 const ProfileNavcard = () => {
   const { user } = useAppSelector((state) => state.auth);
@@ -54,9 +55,8 @@ const ProfileNavcard = () => {
             {user.name} <HiBadgeCheck className="text-accent" />
           </h5>
         </div>
-        <div className=" text-text-secondary   flex gap-2  items-center">
-          <StarRating rating={4.6} />
-          <span className=" text-sm">৪৯ জন বেত্তি </span>
+        <div className="text-sm">
+          <UserRating userId={user.id} />
         </div>
       </div>
     </div>

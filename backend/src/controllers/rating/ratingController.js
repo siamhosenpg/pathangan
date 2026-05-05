@@ -23,15 +23,14 @@ export const giveRating = async (req, res) => {
         .json({ message: "Rating must be a number between 1 and 5" });
     }
 
-    // Answer exist করে কিনা চেক
     const answer = await Answer.findOne({ _id: answerId, isDeleted: false });
     if (!answer) {
       return res.status(404).json({ message: "Answer not found" });
     }
 
     const questionId = answer.questionId;
+    const answerUserId = answer.userId; // ← answer যে করেছে তার id
 
-    // Question post exist করে কিনা চেক
     const questionPost = await Post.findOne({
       _id: questionId,
       postType: "question",
@@ -40,21 +39,19 @@ export const giveRating = async (req, res) => {
       return res.status(404).json({ message: "Question post not found" });
     }
 
-    // নিজের answer নিজে rate করা যাবে না
     if (answer.userId.toString() === userId.toString()) {
       return res
         .status(403)
         .json({ message: "You cannot rate your own answer" });
     }
 
-    // Upsert — আগে থেকে থাকলে update, না থাকলে create
+    // answerUserId সহ upsert
     const existingRating = await Rating.findOneAndUpdate(
       { userId, answerId },
-      { rating, questionId },
+      { rating, questionId, answerUserId },
       { new: true, upsert: true, runValidators: true },
     );
 
-    // Aggregate করে average ও count বের করা
     const stats = await Rating.aggregate([
       { $match: { answerId: new mongoose.Types.ObjectId(answerId) } },
       {
@@ -187,7 +184,6 @@ export const getRatingsByQuestion = async (req, res) => {
       return res.status(400).json({ message: "Invalid question ID" });
     }
 
-    // প্রতিটি answer এর average rating এক সাথে দেখাবে
     const stats = await Rating.aggregate([
       { $match: { questionId: new mongoose.Types.ObjectId(questionId) } },
       {
@@ -211,6 +207,43 @@ export const getRatingsByQuestion = async (req, res) => {
     });
   } catch (err) {
     console.error("getRatingsByQuestion error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ===================== GET USER'S AVERAGE RATING (সে কতটুকু rating পেয়েছে) =====================
+export const getUserAverageRating = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    const stats = await Rating.aggregate([
+      { $match: { answerUserId: new mongoose.Types.ObjectId(userId) } },
+      {
+        $group: {
+          _id: "$answerUserId",
+          averageRating: { $avg: "$rating" },
+          totalRatingCount: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const averageRating = stats[0]?.averageRating
+      ? parseFloat(stats[0].averageRating.toFixed(2))
+      : 0;
+    const totalRatingCount = stats[0]?.totalRatingCount || 0;
+
+    return res.status(200).json({
+      success: true,
+      userId,
+      averageRating,
+      totalRatingCount,
+    });
+  } catch (err) {
+    console.error("getUserAverageRating error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };

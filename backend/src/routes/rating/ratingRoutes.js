@@ -5,6 +5,7 @@ import {
   getMyRating,
   deleteRating,
   getRatingsByQuestion,
+  getUserAverageRating,
 } from "../../controllers/rating/ratingController.js";
 import { protect } from "../../middleware/auth.js"; // তোমার existing auth middleware
 
@@ -24,5 +25,7 @@ router.delete("/answer/:answerId", protect, deleteRating);
 
 // একটি question এর সব answer এর rating এক সাথে দেখা
 router.get("/question/:questionId", getRatingsByQuestion);
+// একটি user এর average rating দেখা
+router.get("/user/:userId", getUserAverageRating);
 
 export default router;

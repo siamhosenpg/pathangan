@@ -42,6 +42,13 @@ export interface QuestionRatingsResponse {
   answerRatings: AnswerRatingItem[];
 }
 
+export interface UserAverageRatingResponse {
+  success: boolean;
+  userId: string;
+  averageRating: number;
+  totalRatingCount: number;
+}
+
 // ===================== RATING API =====================
 export const ratingApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -54,6 +61,7 @@ export const ratingApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_result, _error, { answerId }) => [
         { type: "Rating", id: answerId },
+        { type: "Rating", id: `MY_${answerId}` }, // ← এইটা missing ছিল
       ],
     }),
 
@@ -92,6 +100,13 @@ export const ratingApi = baseApi.injectEndpoints({
         { type: "Rating", id: `QUESTION_${questionId}` },
       ],
     }),
+
+    getUserAverageRating: builder.query<UserAverageRatingResponse, string>({
+      query: (userId) => `/ratings/user/${userId}`,
+      providesTags: (_result, _error, userId) => [
+        { type: "Rating", id: `USER_${userId}` },
+      ],
+    }),
   }),
 });
 
@@ -101,4 +116,5 @@ export const {
   useGetMyRatingQuery,
   useDeleteRatingMutation,
   useGetRatingsByQuestionQuery,
+  useGetUserAverageRatingQuery,
 } = ratingApi;

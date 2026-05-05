@@ -113,7 +113,7 @@ const PostThreeDotMenu = ({
               }`}
           >
             <span
-              className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0
+              className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0
                 ${item.danger ? "bg-red-100 text-red-600" : "bg-gray-100 text-gray-700"}`}
             >
               {item.icon}

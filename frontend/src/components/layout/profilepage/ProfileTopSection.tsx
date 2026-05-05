@@ -6,6 +6,7 @@ import Image from "next/image";
 import type { User } from "@/types/usertypes";
 import FollowStats from "./FollowStats";
 import Link from "next/link";
+import UserRating from "@/components/ui/star/UserRating";
 
 interface dataprops {
   data: User;
@@ -57,9 +58,8 @@ const ProfileTopSection = ({ data }: dataprops) => {
           {/* NAME + RATING */}
           <div className="mt-2">
             <h1 className="text-xl font-bold">{data.name}</h1>
-            <div className="flex items-center gap-3 mt-1">
-              <StarRating rating={4.5} />
-              <span>৪৯ জন বেত্তি</span>
+            <div className="mt-1">
+              <UserRating userId={data._id} />
             </div>
           </div>
         </div>
