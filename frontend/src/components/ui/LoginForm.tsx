@@ -22,9 +22,12 @@ export default function LoginForm() {
     e.preventDefault();
     try {
       const res = await login(form).unwrap();
+      console.log("Login response:", res);
       dispatch(setUser(res.user));
       router.push("/");
-    } catch {}
+    } catch (err) {
+      console.error("Login error:", err);
+    }
   };
 
   const errorMessage =

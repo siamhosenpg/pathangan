@@ -2,19 +2,17 @@ import bcrypt from "bcryptjs";
 import User from "../models/usermodel.js";
 import { generateToken } from "../utils/generateToken.js";
 
-const isProduction = process.env.NODE_ENV === "production";
-
-const cookieOptions = {
+const getCookieOptions = () => ({
   httpOnly: true,
-  secure: isProduction,
-  sameSite: isProduction ? "none" : "lax",
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   maxAge: 7 * 24 * 60 * 60 * 1000,
-};
+});
 
 // ===================== REGISTER =====================
 export async function register(req, res) {
   try {
-    const { name, email, password } = req.body; // username সরানো হয়েছে
+    const { name, email, password } = req.body;
 
     if (!name || !email || !password)
       return res
@@ -27,19 +25,17 @@ export async function register(req, res) {
     if (existing)
       return res.status(409).json({ message: "Email already in use" });
 
-    // ── Username auto-generate (with unique check) ──
-    const baseUsername = name.toLowerCase().trim().split(/\s+/).join(""); // "Siam Hosen" → "siamhosen"
+    const baseUsername = name.toLowerCase().trim().split(/\s+/).join("");
 
     let username = "";
     let isUnique = false;
 
     while (!isUnique) {
-      const number = Math.floor(10 + Math.random() * 9990); // 10–9999
-      username = `${baseUsername}${number}`; // "siamhosen4823"
+      const number = Math.floor(10 + Math.random() * 9990);
+      username = `${baseUsername}${number}`;
       const taken = await User.findOne({ username });
       if (!taken) isUnique = true;
     }
-    // ────────────────────────────────────────────────
 
     const salt = await bcrypt.genSalt(10);
     const hashed = await bcrypt.hash(password, salt);
@@ -53,7 +49,7 @@ export async function register(req, res) {
 
     const token = generateToken({ id: user._id });
 
-    res.cookie("token", token, cookieOptions);
+    res.cookie("token", token, getCookieOptions());
 
     res.status(201).json({
       user: {
@@ -69,6 +65,7 @@ export async function register(req, res) {
     res.status(500).json({ message: "Server error" });
   }
 }
+
 // ===================== LOGIN =====================
 export async function login(req, res) {
   try {
@@ -79,29 +76,22 @@ export async function login(req, res) {
 
     email = email.toLowerCase();
 
-    // Enable password selection
     const user = await User.findOne({ email }).select("+password");
 
-    if (!user) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
+    if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
-    // Compare password
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
+    if (!isMatch)
       return res.status(401).json({ message: "Invalid credentials" });
-    }
 
-    // Optional: check if user is suspended/blocked
-    if (user.status !== "active") {
+    if (user.status !== "active")
       return res
         .status(403)
         .json({ message: `Account is ${user.status}. Contact support.` });
-    }
 
     const token = generateToken({ id: user._id });
 
-    res.cookie("token", token, cookieOptions);
+    res.cookie("token", token, getCookieOptions());
 
     res.status(200).json({
       user: {
@@ -130,15 +120,14 @@ export async function getMe(req, res) {
     res.status(500).json({ message: "Server error" });
   }
 }
+
 // ===================== LOGOUT =====================
 export async function logout(req, res) {
   try {
-    // Clear the token cookie
     res.cookie("token", "", {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? "none" : "lax",
+      ...getCookieOptions(),
       expires: new Date(0),
+      maxAge: undefined,
     });
 
     res.status(200).json({ message: "Logout successful" });
