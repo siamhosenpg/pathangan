@@ -93,10 +93,6 @@ app.use("/activities", activityRoutes);
 app.get("/", (req, res) => {
   res.send("API is running...");
 });
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ message: "Route not found" });
-});
 
 // example of an optional-auth route
 import { optionalAuth } from "./src/middleware/auth.js";
@@ -111,6 +107,10 @@ app.get("/test-env", (req, res) => {
     NODE_ENV: process.env.NODE_ENV,
     isProduction: process.env.NODE_ENV === "production",
   });
+});
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ message: "Route not found" });
 });
 
 // Start server with socket.io
