@@ -10,9 +10,9 @@ const QuestionLeftLayout = () => {
   if (isError) return <div>Error occurred while fetching questions.</div>;
 
   return (
-    <div className="question-left-layout">
+    <div className="question-left-layout flex flex-col gap-4 pb-14">
       {data?.questions.map((question) => (
-        <QuestionCard post={question} />
+        <QuestionCard key={question._id} post={question} />
       ))}
     </div>
   );

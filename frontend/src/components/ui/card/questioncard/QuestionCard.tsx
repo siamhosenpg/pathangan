@@ -27,7 +27,7 @@ const QuestionCard = ({ post }: Props) => {
   });
 
   return (
-    <div className="bg-background pt-6 rounded-xl">
+    <div className="bg-background pt-6 rounded-xl " key={post._id}>
       <PostProfiletop user={userid} createdAt={createdAt} />
       <h3 className="mt-2 px-6">{question?.questionText}</h3>
 
