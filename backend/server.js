@@ -45,7 +45,7 @@ const __dirname = path.dirname(__filename);
 
 // Initialize Express app
 const app = express();
-const port = process.env.PORT || 4000;
+const port = process.env.PORT || 5000;
 
 // Middleware
 app.use(

@@ -2,11 +2,12 @@ import bcrypt from "bcryptjs";
 import User from "../models/usermodel.js";
 import { generateToken } from "../utils/generateToken.js";
 
-// Cookie options
+const isProduction = process.env.NODE_ENV === "production";
+
 const cookieOptions = {
   httpOnly: true,
-  secure: false, // ← localhost এ false করো, production এ true
-  sameSite: "lax", // ← localhost এ "lax" দাও, production এ "none"
+  secure: isProduction,
+  sameSite: isProduction ? "none" : "lax",
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
@@ -135,8 +136,8 @@ export async function logout(req, res) {
     // Clear the token cookie
     res.cookie("token", "", {
       httpOnly: true,
-      secure: false, // ← login এর মতো same রাখো
-      sameSite: "lax", // ← login এর মতো same রাখো
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
       expires: new Date(0),
     });
 
