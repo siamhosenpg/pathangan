@@ -56,6 +56,8 @@ app.use(
       "https://pathangan.vercel.app",
     ],
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
 
@@ -102,6 +104,13 @@ app.get("/maybe", optionalAuth, (req, res) => {
   if (req.user)
     return res.json({ message: "Hello logged-in user", userId: req.user.id });
   return res.json({ message: "Hello guest" });
+});
+
+app.get("/test-env", (req, res) => {
+  res.json({
+    NODE_ENV: process.env.NODE_ENV,
+    isProduction: process.env.NODE_ENV === "production",
+  });
 });
 
 // Start server with socket.io
