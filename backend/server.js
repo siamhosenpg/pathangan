@@ -16,6 +16,7 @@ import { initSocket } from "./src/socket/socket.js";
 // Import routes (must include .js extension)
 import authRoutes from "./src/routes/authRoutes.js";
 import postsRoute from "./src/routes/postsroute.js";
+import questionRoutes from "./src/routes/post/questionRoute.js";
 import answerRoutes from "./src/routes/answer/answerRoutes.js";
 import usersRoute from "./src/routes/usersroute.js";
 import reactionRoutes from "./src/routes/reactionRoutes.js";
@@ -65,7 +66,7 @@ app.use("/answers", answerRoutes);
 app.use("/auth", authRoutes);
 app.use("/reactions", reactionRoutes);
 app.use("/comments", commentRoutes);
-
+app.use("/questions", questionRoutes);
 app.use("/follows", followroutes);
 app.use("/saves/collections", savedCollectionRoutes);
 
