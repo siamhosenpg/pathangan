@@ -50,7 +50,11 @@ const port = process.env.PORT || 4000;
 // Middleware
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:8081"],
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:8081",
+      "https://pathangan.vercel.app",
+    ],
     credentials: true,
   }),
 );
