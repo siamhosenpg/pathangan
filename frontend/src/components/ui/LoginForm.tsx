@@ -2,17 +2,19 @@
 import { useState } from "react";
 import { useLoginMutation, useGetMeQuery } from "@/redux/api/authApi";
 import { setUser } from "@/redux/features/auth/authSlice";
-import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { useAppDispatch } from "@/redux/hooks";
 import type { LoginRequest } from "@/types/authtypes";
 import Link from "next/link";
+import { MdEmail, MdLock, MdVisibility, MdVisibilityOff } from "react-icons/md";
+import { FcGoogle } from "react-icons/fc";
 
 export default function LoginForm() {
   const dispatch = useAppDispatch();
   const [login, { isLoading, error }] = useLoginMutation();
   const { refetch } = useGetMeQuery();
-  const user = useAppSelector((state) => state.auth.user);
   const [form, setForm] = useState<LoginRequest>({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
+  const [googleAlert, setGoogleAlert] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -35,282 +37,161 @@ export default function LoginForm() {
       ? (error.data as { message: string })?.message
       : null;
 
-  // লগইন হয়ে গেলে user info দেখাও
-  if (user) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4 p-8 rounded-2xl border border-border bg-white/5">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-2xl font-bold">
-            {user.name?.charAt(0).toUpperCase()}
-          </div>
-          <div className="text-center">
-            <p className="text-text text-xl font-semibold">{user.name}</p>
-            <p className="text-text-secondary text-sm">@{user.username}</p>
-            <p className="text-text-secondary text-sm">{user.email}</p>
-          </div>
-          <p className="text-green-400 text-sm">✓ লগইন সফল হয়েছে</p>
-          <button
-            onClick={() => (window.location.href = "/")}
-            className="px-6 py-2 rounded-xl bg-accent text-white text-sm font-medium hover:opacity-90 transition-all"
-          >
-            হোমে যান
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen w-full flex ">
-      {/* ===== LEFT SIDE ===== */}
-      <div className="hidden lg:flex w-1/2 relative bg-accent/10 flex-col items-center justify-center px-16 overflow-hidden">
-        <div className="absolute z-10 top-[-80px] left-[-80px] w-[350px] h-[350px] bg-purple-600 opacity-20 rounded-full blur-[120px]" />
-        <div className="absolute z-10 bottom-[-60px] right-[-60px] w-[300px] h-[300px] bg-blue-500 opacity-20 rounded-full blur-[100px]" />
-        <div className="relative z-10 flex flex-col items-start gap-10 w-full max-w-md">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-                  stroke="white"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
-            <span className="text-white text-xl font-bold tracking-wide">
-              প্রসঙ্গ
-            </span>
-          </div>
-          <div className="flex flex-col gap-4">
-            <h1 className="text-3xl xl:text-5xl font-extrabold text-text leading-tight">
-              আপনার মানুষদের <br />
-              <span className="text-text-secondary">সাথে যুক্ত থাকুন</span>
-            </h1>
-            <p className="text-text-secondary text-base leading-relaxed">
-              প্রিয়জনদের সাথে মুহূর্ত ভাগ করুন, নতুন বন্ধু তৈরি করুন এবং আপনার
-              গল্প বলুন।
-            </p>
-          </div>
-          <div className="flex flex-col gap-4 w-full">
-            {[
-              { icon: "💬", text: "তাৎক্ষণিক বার্তা পাঠান" },
-              { icon: "📸", text: "ছবি ও মুহূর্ত শেয়ার করুন" },
-              { icon: "🌐", text: "বিশ্বজুড়ে মানুষের সাথে পরিচিত হন" },
-            ].map((item, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 bg-white/25 border border-border rounded-xl px-4 py-3"
-              >
-                <span className="text-xl">{item.icon}</span>
-                <span className="text-text-secondary text-sm">{item.text}</span>
+    <div className="min-h-screen w-full flex items-center justify-center bg-background px-6 py-12">
+      {/* Google Alert Modal */}
+      {googleAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-background border border-border rounded-2xl p-6 max-w-sm w-full flex flex-col gap-4 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
+                <FcGoogle size={22} />
               </div>
-            ))}
+              <div>
+                <p className="text-text font-semibold text-sm">
+                  Google লগইন শীঘ্রই আসছে
+                </p>
+                <p className="text-text-secondary text-xs mt-0.5">
+                  Coming Soon
+                </p>
+              </div>
+            </div>
+            <p className="text-text-secondary text-sm leading-relaxed">
+              আমরা শীঘ্রই Google-এর সাথে সংযোগ স্থাপন করব। এই ফিচারটি近く
+              প্রকাশিত হবে। এর মধ্যে ইমেইল দিয়ে লগইন করুন।
+            </p>
+            <button
+              onClick={() => setGoogleAlert(false)}
+              className="w-full py-2.5 rounded-xl bg-accent text-white text-sm font-medium hover:opacity-90 transition-all"
+            >
+              বুঝেছি
+            </button>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* ===== RIGHT SIDE ===== */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-background px-6 py-12">
-        <div className="w-full max-w-md flex flex-col gap-8">
-          <div className="flex flex-col gap-2">
-            <h2 className="text-3xl font-bold text-text">স্বাগতম 👋</h2>
-            <p className="text-sm">আপনার অ্যাকাউন্টে প্রবেশ করুন</p>
+      <div className="w-full max-w-md flex flex-col gap-6">
+        {/* Logo */}
+        <div className="flex flex-col gap-1 items-center mb-2">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center mb-3">
+            <span className="text-white font-bold text-xl">প</span>
           </div>
-
-          {errorMessage && (
-            <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-xl">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-                <path
-                  d="M12 8v4M12 16h.01"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-              {errorMessage}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-            <div className="flex flex-col gap-2">
-              <label className="text-text text-sm">ইমেইল</label>
-              <div className="flex items-center bg-white/5 border border-border rounded-xl px-4 gap-3 focus-within:border-accent transition-colors">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  className="text-text shrink-0"
-                >
-                  <path
-                    d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  />
-                  <polyline
-                    points="22,6 12,13 2,6"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  />
-                </svg>
-                <input
-                  name="email"
-                  type="email"
-                  value={form.email}
-                  onChange={handleChange}
-                  required
-                  placeholder="আপনার ইমেইল লিখুন"
-                  className="w-full bg-transparent py-4 text-text text-sm placeholder:text-text/50 outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <label className="text-text text-sm">পাসওয়ার্ড</label>
-              <div className="flex items-center bg-white/5 border border-border rounded-xl px-4 gap-3 focus-within:border-accent transition-colors">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  className="text-text shrink-0"
-                >
-                  <rect
-                    x="3"
-                    y="11"
-                    width="18"
-                    height="11"
-                    rx="2"
-                    ry="2"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  />
-                  <path
-                    d="M7 11V7a5 5 0 0 1 10 0v4"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  />
-                </svg>
-                <input
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  value={form.password}
-                  onChange={handleChange}
-                  required
-                  placeholder="আপনার পাসওয়ার্ড লিখুন"
-                  className="w-full bg-transparent py-4 text-text text-sm placeholder:text-text/50 outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="text-text hover:text-text-tertiary transition-colors shrink-0"
-                >
-                  {showPassword ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                      <path
-                        d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                      <path
-                        d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                      <line
-                        x1="1"
-                        y1="1"
-                        x2="23"
-                        y2="23"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                      <path
-                        d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      />
-                      <circle
-                        cx="12"
-                        cy="12"
-                        r="3"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-4 rounded-xl bg-accent text-white font-semibold text-sm hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
-            >
-              {isLoading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg
-                    className="animate-spin"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                  >
-                    <circle
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                      className="opacity-25"
-                    />
-                    <path
-                      d="M4 12a8 8 0 018-8"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                      className="opacity-75"
-                    />
-                  </svg>
-                  লগইন হচ্ছে...
-                </span>
-              ) : (
-                "লগইন করুন"
-              )}
-            </button>
-          </form>
-
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-white/10" />
-            <span className="text-text text-xs">অথবা</span>
-            <div className="flex-1 h-px bg-white/10" />
-          </div>
-
-          <p className="text-center text-text-secondary text-sm">
-            অ্যাকাউন্ট নেই?{" "}
-            <Link
-              href="/register"
-              className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
-            >
-              এখনই রেজিস্ট্রেশন করুন
-            </Link>
+          <h2 className="text-3xl font-bold text-text">স্বাগতম 👋</h2>
+          <p className="text-sm text-text-secondary">
+            আপনার অ্যাকাউন্টে প্রবেশ করুন
           </p>
         </div>
+
+        {errorMessage && (
+          <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-xl">
+            ⚠️ {errorMessage}
+          </div>
+        )}
+
+        {/* Google Button */}
+        <button
+          type="button"
+          onClick={() => setGoogleAlert(true)}
+          className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-border bg-white/5 hover:bg-white/10 transition-all text-text text-sm font-medium"
+        >
+          <FcGoogle size={20} />
+          Google দিয়ে লগইন করুন
+        </button>
+
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-px bg-white/10" />
+          <span className="text-text-secondary text-xs">অথবা ইমেইল দিয়ে</span>
+          <div className="flex-1 h-px bg-white/10" />
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <label className="text-text text-sm">ইমেইল</label>
+            <div className="flex items-center bg-white/5 border border-border rounded-xl px-4 gap-3 focus-within:border-accent transition-colors">
+              <MdEmail size={18} className="text-text-secondary shrink-0" />
+              <input
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={handleChange}
+                required
+                placeholder="আপনার ইমেইল লিখুন"
+                className="w-full bg-transparent py-4 text-text text-sm placeholder:text-text/40 outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-text text-sm">পাসওয়ার্ড</label>
+            <div className="flex items-center bg-white/5 border border-border rounded-xl px-4 gap-3 focus-within:border-accent transition-colors">
+              <MdLock size={18} className="text-text-secondary shrink-0" />
+              <input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={form.password}
+                onChange={handleChange}
+                required
+                placeholder="আপনার পাসওয়ার্ড লিখুন"
+                className="w-full bg-transparent py-4 text-text text-sm placeholder:text-text/40 outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-text-secondary hover:text-text transition-colors shrink-0"
+              >
+                {showPassword ? (
+                  <MdVisibilityOff size={18} />
+                ) : (
+                  <MdVisibility size={18} />
+                )}
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full py-4 rounded-xl bg-accent text-white font-semibold text-sm hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+          >
+            {isLoading ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg
+                  className="animate-spin w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    className="opacity-25"
+                  />
+                  <path
+                    d="M4 12a8 8 0 018-8"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    className="opacity-75"
+                  />
+                </svg>
+                লগইন হচ্ছে...
+              </span>
+            ) : (
+              "লগইন করুন"
+            )}
+          </button>
+        </form>
+
+        <p className="text-center text-text-secondary text-sm">
+          অ্যাকাউন্ট নেই?{" "}
+          <Link
+            href="/register"
+            className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
+          >
+            এখনই রেজিস্ট্রেশন করুন
+          </Link>
+        </p>
       </div>
     </div>
   );
