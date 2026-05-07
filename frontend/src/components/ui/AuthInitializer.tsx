@@ -14,11 +14,11 @@ export default function AuthInitializer() {
     if (isSuccess && data?.user) {
       dispatch(
         setUser({
-          id: (data.user as any)._id || data.user.id, // ← _id handle করো
+          id: (data.user as any)._id || data.user.id,
           username: data.user.username,
           name: data.user.name,
           email: data.user.email,
-          profileImage: (data.user as any).profileImage || "", // ← এটা যোগ করো
+          profileImage: (data.user as any).profileImage || "",
         }),
       );
     }
