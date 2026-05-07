@@ -9,12 +9,10 @@ export function middleware(request: NextRequest) {
 
   const isPublic = publicRoutes.some((route) => pathname.startsWith(route));
 
-  // Token নেই + যেকোনো protected page → login এ পাঠাও
   if (!token && !isPublic) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Token আছে + login/register এ গেলে → home এ পাঠাও
   if (token && isPublic) {
     return NextResponse.redirect(new URL("/", request.url));
   }

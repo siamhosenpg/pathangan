@@ -23,12 +23,9 @@ export default function LoginForm() {
     e.preventDefault();
     try {
       const res = await login(form).unwrap();
-      console.log("res:", res);
       dispatch(setUser(res.user));
       await refetch();
-      console.log("refetch done");
-      router.push("/");
-      console.log("push done");
+      window.location.href = "/"; // router.push এর বদলে hard redirect
     } catch (err) {
       console.error("Login error:", err);
     }
