@@ -6,7 +6,9 @@ import { useAppDispatch } from "@/redux/hooks";
 
 export default function AuthInitializer() {
   const dispatch = useAppDispatch();
-  const { data, isError, isSuccess } = useGetMeQuery();
+  const { data, isError, isSuccess } = useGetMeQuery(undefined, {
+    refetchOnMountOrArgChange: true,
+  });
 
   useEffect(() => {
     if (isSuccess && data?.user) {

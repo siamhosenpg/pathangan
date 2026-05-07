@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useLoginMutation } from "@/redux/api/authApi";
+import { useLoginMutation, useGetMeQuery } from "@/redux/api/authApi";
 import { setUser } from "@/redux/features/auth/authSlice";
 import { useAppDispatch } from "@/redux/hooks";
 import type { LoginRequest } from "@/types/authtypes";
@@ -11,6 +11,7 @@ export default function LoginForm() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const [login, { isLoading, error }] = useLoginMutation();
+  const { refetch } = useGetMeQuery();
   const [form, setForm] = useState<LoginRequest>({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
 
@@ -22,8 +23,8 @@ export default function LoginForm() {
     e.preventDefault();
     try {
       const res = await login(form).unwrap();
-      console.log("Login response:", res);
       dispatch(setUser(res.user));
+      await refetch();
       router.push("/");
     } catch (err) {
       console.error("Login error:", err);
