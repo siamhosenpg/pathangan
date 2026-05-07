@@ -1,9 +1,12 @@
+import GuestGuard from "@/components/ui/guard/GuestGuard";
 import RegisterForm from "@/components/ui/RegisterForm";
 
 export default function RegisterPage() {
   return (
-    <main>
-      <RegisterForm />
-    </main>
+    <GuestGuard>
+      <main>
+        <RegisterForm />
+      </main>
+    </GuestGuard>
   );
 }
