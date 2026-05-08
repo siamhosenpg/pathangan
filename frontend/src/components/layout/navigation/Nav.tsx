@@ -9,6 +9,7 @@ import { IconType } from "react-icons";
 
 // Component
 import Searchbox from "../../ui/searchbox/Searchbox";
+import NotificationNav from "@/components/ui/notifications/NotificationNav";
 
 type SubMenuItem = {
   name: string;
@@ -78,6 +79,7 @@ const Nav = () => {
 
         {/* Right side */}
         <div className="flex gap-6 items-center">
+          <NotificationNav />
           <Searchbox />
         </div>
       </div>

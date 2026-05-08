@@ -5,20 +5,22 @@ import {
   markAllAsRead,
   getUnreadNotificationCount,
   deleteNotification,
+  deleteAllNotifications,
 } from "../../controllers/notification/notificationcontroller.js";
 import { protect } from "../../middleware/auth.js";
 
 const router = express.Router();
 
-// 🔔 Get my notifications
+// 🔔 Get notifications
 router.get("/", protect, getMyNotifications);
 router.get("/unread-count", protect, getUnreadNotificationCount);
 
-// 🔔 Mark single notification read
-router.patch("/:id/read", protect, markAsRead);
-
-// 🔔 Mark all as read
+// 🔔 Bulk actions — /:id এর আগে রাখতে হবে
 router.patch("/read-all", protect, markAllAsRead);
+router.delete("/delete-all", protect, deleteAllNotifications);
+
+// 🔔 Single notification — সবার শেষে
+router.patch("/:id/read", protect, markAsRead);
 router.delete("/:id", protect, deleteNotification);
 
 export default router;
