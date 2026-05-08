@@ -14,36 +14,83 @@ import type {
 
 const postApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // ===================== GET ALL POSTS =====================
-    getPosts: builder.query<
+    // ===================== GET ALL POSTS (INFINITE) =====================
+    getPosts: builder.infiniteQuery<
       GetPostsResponse,
-      { cursor?: string; limit?: number }
+      { limit?: number },
+      string | null
     >({
-      query: ({ cursor, limit = 10 } = {}) => ({
+      infiniteQueryOptions: {
+        initialPageParam: null as string | null,
+        getNextPageParam: (lastPage: GetPostsResponse) =>
+          lastPage.nextCursor ?? null,
+      },
+
+      query: ({
+        queryArg,
+        pageParam,
+      }: {
+        queryArg: { limit?: number };
+        pageParam: string | null;
+      }) => ({
         url: "/posts",
-        method: "GET",
-        params: { cursor, limit },
+        method: "GET" as const,
+
+        params: {
+          cursor: pageParam ?? undefined,
+          limit: queryArg.limit ?? 10,
+        },
       }),
+
       providesTags: ["Post"],
     }),
 
     // ===================== GET POST BY ID =====================
     getPostById: builder.query<Post, string>({
-      query: (id) => ({ url: `/posts/post/${id}`, method: "GET" }),
-      providesTags: (result, error, id) => [{ type: "Post", id }],
+      query: (id) => ({
+        url: `/posts/post/${id}`,
+        method: "GET" as const,
+      }),
+
+      providesTags: (_result, _error, id) => [{ type: "Post", id }],
     }),
 
-    // ===================== GET POSTS BY USERID =====================
-    getPostsByUserId: builder.query<
+    // ===================== GET POSTS BY USERID (INFINITE) =====================
+    getPostsByUserId: builder.infiniteQuery<
       GetPostsByUserIdResponse,
-      { userid: string; cursor?: string; limit?: number; postType?: string }
+      { userid: string; limit?: number; postType?: string },
+      string | null
     >({
-      query: ({ userid, cursor, limit = 10, postType }) => ({
-        url: `/posts/user/${userid}`,
-        method: "GET",
-        params: { cursor, limit, postType },
+      infiniteQueryOptions: {
+        initialPageParam: null as string | null,
+
+        getNextPageParam: (lastPage: GetPostsByUserIdResponse) =>
+          lastPage.nextCursor ?? null,
+      },
+
+      query: ({
+        queryArg,
+        pageParam,
+      }: {
+        queryArg: {
+          userid: string;
+          limit?: number;
+          postType?: string;
+        };
+
+        pageParam: string | null;
+      }) => ({
+        url: `/posts/user/${queryArg.userid}`,
+        method: "GET" as const,
+
+        params: {
+          cursor: pageParam ?? undefined,
+          limit: queryArg.limit ?? 10,
+          postType: queryArg.postType,
+        },
       }),
-      providesTags: (result, error, { userid }) => [
+
+      providesTags: (_result, _error, { userid }) => [
         { type: "Post", id: userid },
       ],
     }),
@@ -52,7 +99,7 @@ const postApi = baseApi.injectEndpoints({
     getPostCountByUserId: builder.query<PostCountResponse, string>({
       query: (userid) => ({
         url: `/posts/user/${userid}/count`,
-        method: "GET",
+        method: "GET" as const,
       }),
     }),
 
@@ -60,9 +107,10 @@ const postApi = baseApi.injectEndpoints({
     createPost: builder.mutation<PostResponse, FormData>({
       query: (formData) => ({
         url: "/posts",
-        method: "POST",
+        method: "POST" as const,
         body: formData,
       }),
+
       invalidatesTags: ["Post"],
     }),
 
@@ -73,9 +121,10 @@ const postApi = baseApi.injectEndpoints({
     >({
       query: (body) => ({
         url: "/posts/create/question",
-        method: "POST",
+        method: "POST" as const,
         body,
       }),
+
       invalidatesTags: ["Post"],
     }),
 
@@ -83,9 +132,10 @@ const postApi = baseApi.injectEndpoints({
     createCoursePost: builder.mutation<PostResponse, FormData>({
       query: (formData) => ({
         url: "/posts/create/course",
-        method: "POST",
+        method: "POST" as const,
         body: formData,
       }),
+
       invalidatesTags: ["Post"],
     }),
 
@@ -93,9 +143,10 @@ const postApi = baseApi.injectEndpoints({
     createSharePost: builder.mutation<PostResponse, CreateSharePostRequest>({
       query: (body) => ({
         url: "/posts/share",
-        method: "POST",
+        method: "POST" as const,
         body,
       }),
+
       invalidatesTags: ["Post"],
     }),
 
@@ -103,27 +154,29 @@ const postApi = baseApi.injectEndpoints({
     updatePost: builder.mutation<PostResponse, UpdatePostRequest>({
       query: ({ id, body }) => ({
         url: `/posts/${id}`,
-        method: "PUT",
+        method: "PUT" as const,
         body,
       }),
-      invalidatesTags: (result, error, { id }) => [{ type: "Post", id }],
+
+      invalidatesTags: (_result, _error, { id }) => [{ type: "Post", id }],
     }),
 
     // ===================== DELETE POST =====================
     deletePost: builder.mutation<DeletePostResponse, string>({
       query: (id) => ({
         url: `/posts/${id}`,
-        method: "DELETE",
+        method: "DELETE" as const,
       }),
+
       invalidatesTags: ["Post"],
     }),
   }),
 });
 
 export const {
-  useGetPostsQuery,
+  useGetPostsInfiniteQuery,
   useGetPostByIdQuery,
-  useGetPostsByUserIdQuery,
+  useGetPostsByUserIdInfiniteQuery,
   useGetPostCountByUserIdQuery,
   useCreatePostMutation,
   useCreateQuestionPostMutation,

@@ -1,42 +1,47 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useCallback } from "react";
 import CourseCardFeed from "@/components/ui/card/course/CourseCardFeed";
 import Postcard from "@/components/ui/card/postcard/Postcard";
+import PostCardSkeleton from "@/components/ui/card/postcard/PostCardSkeleton";
 import QuestionCard from "@/components/ui/card/questioncard/QuestionCard";
-import { useGetPostsByUserIdQuery } from "@/redux/api/postApi";
+import { useGetPostsByUserIdInfiniteQuery } from "@/redux/api/postApi";
 
 interface ProfilePostsProps {
   userid: string;
 }
 
 export default function ProfilePosts({ userid }: ProfilePostsProps) {
-  const [cursor, setCursor] = useState<string | undefined>(undefined);
-  const [allPosts, setAllPosts] = useState<any[]>([]);
-
-  const { data, isLoading, isFetching } = useGetPostsByUserIdQuery(
-    { userid, cursor, limit: 10 },
-    { skip: !userid, refetchOnMountOrArgChange: true },
+  const {
+    data,
+    isLoading,
+    isError,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useGetPostsByUserIdInfiniteQuery(
+    { userid, limit: 10 },
+    { skip: !userid },
   );
 
-  // merge without duplicate
-  (() => {
-    if (!data?.posts) return;
-    const existingIds = new Set(allPosts.map((p) => p._id));
-    const newPosts = data.posts.filter((p: any) => !existingIds.has(p._id));
-    if (newPosts.length > 0) {
-      setAllPosts((prev) => [...prev, ...newPosts]);
-    }
-  })();
+  const posts = data?.pages.flatMap((page) => page.posts) ?? [];
 
-  const handleLoadMore = () => {
-    if (data?.nextCursor) {
-      setCursor(data.nextCursor);
-    }
-  };
+  const observer = useRef<IntersectionObserver | null>(null);
+  const sentinelRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (isFetchingNextPage) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasNextPage) {
+          fetchNextPage();
+        }
+      });
+      if (node) observer.current.observe(node);
+    },
+    [isFetchingNextPage, hasNextPage, fetchNextPage],
+  );
 
-  // skeleton
-  if (isLoading && allPosts.length === 0) {
+  if (isLoading) {
     return (
       <div className="w-full flex justify-center py-10">
         <svg
@@ -65,8 +70,15 @@ export default function ProfilePosts({ userid }: ProfilePostsProps) {
     );
   }
 
-  // empty
-  if (!isLoading && allPosts.length === 0) {
+  if (isError) {
+    return (
+      <div className="w-full text-center py-10 text-text-secondary text-sm">
+        পোস্ট লোড করতে সমস্যা হয়েছে
+      </div>
+    );
+  }
+
+  if (!isLoading && posts.length === 0) {
     return (
       <div className="w-full text-center py-10 text-text-secondary text-sm">
         কোনো পোস্ট নেই
@@ -76,7 +88,7 @@ export default function ProfilePosts({ userid }: ProfilePostsProps) {
 
   return (
     <div className="w-full flex flex-col gap-4 pb-10">
-      {allPosts.map((post: any) => {
+      {posts.map((post) => {
         if (!post) return null;
 
         if (post.postType === "question") {
@@ -88,18 +100,11 @@ export default function ProfilePosts({ userid }: ProfilePostsProps) {
         return <Postcard key={post._id} post={post} />;
       })}
 
-      {/* load more */}
-      {data?.nextCursor && (
-        <button
-          onClick={handleLoadMore}
-          disabled={isFetching}
-          className="w-full py-2.5 text-sm text-text-secondary hover:text-text-primary border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
-        >
-          {isFetching ? "লোড হচ্ছে..." : "আরো দেখুন"}
-        </button>
-      )}
+      {/* sentinel */}
+      <div ref={sentinelRef} className="h-4" />
 
-      {isFetching && allPosts.length > 0 && (
+      {/* next page loading */}
+      {isFetchingNextPage && (
         <div className="w-full flex justify-center py-2">
           <svg
             className="animate-spin text-accent"
@@ -123,6 +128,12 @@ export default function ProfilePosts({ userid }: ProfilePostsProps) {
               className="opacity-75"
             />
           </svg>
+        </div>
+      )}
+
+      {!hasNextPage && posts.length > 0 && (
+        <div className="text-center py-6 text-text-secondary text-sm">
+          আর কোনো পোস্ট নেই
         </div>
       )}
     </div>
