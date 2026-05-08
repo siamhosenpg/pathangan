@@ -11,7 +11,7 @@ const notificationSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["follow", "react", "comment", "share"],
+      enum: ["follow", "like", "comment", "share"], // "react" → "like"
       required: true,
     },
 
@@ -42,7 +42,7 @@ const notificationSchema = new mongoose.Schema(
   },
   {
     timestamps: true, // createdAt, updatedAt auto
-  }
+  },
 );
 
 // important indexes

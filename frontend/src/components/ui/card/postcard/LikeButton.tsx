@@ -24,7 +24,7 @@ const LikeButton = ({ postId }: { postId: string }) => {
     <button
       onClick={handleLike}
       disabled={isLoading}
-      className="flex items-center gap-1.5 transition-all duration-200"
+      className="flex items-center gap-1.5 transition-all duration-200 cursor-pointer"
     >
       {isLiked ? (
         <FaHeart

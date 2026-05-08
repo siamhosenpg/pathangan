@@ -61,12 +61,13 @@ const navData: NavItem[] = [
     path: "/settings",
   },
 
-  {
+  /* {
     id: 7,
     name: "ক্যালেন্ডার",
     icon: <AiOutlineCalendar />,
     path: "/calendar",
   },
+  */
 
   {
     id: 8,
@@ -103,7 +104,7 @@ const LeftNav = () => {
     }
   };
   return (
-    <nav className=" bg-background rounded-xl h-full ">
+    <nav className=" bg-background rounded-xl h-full  overflow-y-auto ">
       <div className="p-6">
         <ul className="space-y-2">
           {navData.map((item) => (

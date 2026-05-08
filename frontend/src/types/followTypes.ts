@@ -15,6 +15,18 @@ export interface FollowRecord {
   updatedAt: string;
 }
 
+export interface FollowListResponse {
+  success: boolean;
+  count: number;
+  followers: FollowRecord[];
+}
+
+export interface FollowingListResponse {
+  success: boolean;
+  count: number;
+  following: FollowRecord[];
+}
+
 export interface FollowResponse {
   success: boolean;
   message: string;
@@ -22,14 +34,17 @@ export interface FollowResponse {
 }
 
 export interface UnfollowResponse {
+  success: boolean;
   message: string;
 }
 
 export interface FollowersCountResponse {
+  success: boolean;
   followersCount: number;
 }
 
 export interface FollowingCountResponse {
+  success: boolean;
   followingCount: number;
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 
 import {
   useFollowUserMutation,
@@ -16,10 +16,13 @@ interface Props {
 const FollowButton = ({ targetUserId }: Props) => {
   const currentUser = useAppSelector((state) => state.auth.user);
 
-  const { data: followers, isLoading: checkingFollow } =
+  const { data, isLoading: checkingFollow } =
     useGetFollowersQuery(targetUserId);
 
-  const isFollowing = followers?.some((f) =>
+  // backend এখন { success, count, followers: [...] } return করে
+  const followers = data?.followers ?? [];
+
+  const isFollowing = followers.some((f: any) =>
     typeof f.followerId === "object"
       ? f.followerId._id === currentUser?.id
       : f.followerId === currentUser?.id,

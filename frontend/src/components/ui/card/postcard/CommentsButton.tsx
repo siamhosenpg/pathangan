@@ -7,7 +7,10 @@ interface Props {
 
 const CommentsButton = ({ onClick }: Props) => {
   return (
-    <button onClick={onClick} className="  flex items-center gap-1.5  ">
+    <button
+      onClick={onClick}
+      className="  flex items-center gap-1.5  cursor-pointer "
+    >
       <FaRegComment size={19} />
       <span className=" font-medium block ">মতামত</span>
     </button>

@@ -1,5 +1,6 @@
 import Reaction from "../models/reactionModel.js";
 import Post from "../models/postmodel.js";
+import { Notification } from "../models/notification/notificationmodel.js";
 import { createNotification } from "./notification/notificationcontroller.js";
 import {
   createActivity,
@@ -16,10 +17,9 @@ export const toggleReaction = async (req, res) => {
       return res.status(400).json({ message: "postId is required" });
     }
 
-    // 🔍 check existing like
     const existing = await Reaction.findOne({ userId, postId });
 
-    // ❌ যদি already like থাকে → unlike (delete)
+    // ❌ already liked → unlike
     if (existing) {
       await Reaction.deleteOne({ _id: existing._id });
 
@@ -29,10 +29,18 @@ export const toggleReaction = async (req, res) => {
         console.error("Activity deletion error:", err);
       }
 
-      return res.status(200).json({
-        message: "Like removed",
-        liked: false,
-      });
+      // 🔔 notification delete
+      try {
+        await Notification.findOneAndDelete({
+          actorId: userId,
+          type: "like",
+          "target.postId": existing.postId,
+        });
+      } catch (err) {
+        console.error("Notification deletion error:", err);
+      }
+
+      return res.status(200).json({ message: "Like removed", liked: false });
     }
 
     // 🔹 post check
@@ -43,7 +51,7 @@ export const toggleReaction = async (req, res) => {
 
     const actorId = userId;
 
-    // 1️⃣ Activity create (optional রাখতে পারো)
+    // 1️⃣ Activity create
     let activity = null;
     try {
       activity = await createActivity({
@@ -59,16 +67,16 @@ export const toggleReaction = async (req, res) => {
     const newReaction = await Reaction.create({
       userId,
       postId,
-      activityId: activity?._id || null, // যদি না লাগে remove করে দাও
+      activityId: activity?._id || null,
     });
 
-    // 3️⃣ Notification
+    // 3️⃣ Notification create
     try {
       await createNotification({
         userId: post.userid,
         actorId,
         type: "like",
-        postId,
+        postId: post._id,
       });
     } catch (err) {
       console.error("Notification error:", err);
@@ -92,15 +100,11 @@ export const getReactionsByPost = async (req, res) => {
   try {
     const { postId } = req.params;
 
-    const reactions = await Reaction.find({ postId }).populate(
-      "userId",
-      "name username profileImage",
-    );
+    const reactions = await Reaction.find({ postId })
+      .populate("userId", "name username profileImage")
+      .lean();
 
-    return res.status(200).json({
-      count: reactions.length,
-      reactions,
-    });
+    return res.status(200).json({ count: reactions.length, reactions });
   } catch (err) {
     return res.status(500).json({
       message: "Error fetching likes",
@@ -116,11 +120,7 @@ export const getReactionCount = async (req, res) => {
 
     const count = await Reaction.countDocuments({ postId });
 
-    return res.status(200).json({
-      success: true,
-      postId,
-      count,
-    });
+    return res.status(200).json({ success: true, postId, count });
   } catch (err) {
     return res.status(500).json({
       message: "Error fetching count",
@@ -128,9 +128,11 @@ export const getReactionCount = async (req, res) => {
     });
   }
 };
+
+// 🔵 Check user liked
 export const checkUserLiked = async (req, res) => {
   try {
-    const userId = req.user.id; // protect middleware থেকে আসবে
+    const userId = req.user.id;
     const { postId } = req.params;
 
     if (!postId) {
@@ -139,10 +141,7 @@ export const checkUserLiked = async (req, res) => {
 
     const exists = await Reaction.findOne({ userId, postId });
 
-    return res.status(200).json({
-      success: true,
-      liked: !!exists,
-    });
+    return res.status(200).json({ success: true, liked: !!exists });
   } catch (err) {
     return res.status(500).json({
       message: "Error checking like status",

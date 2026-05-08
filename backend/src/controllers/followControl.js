@@ -1,46 +1,37 @@
-// controllers/followController.js
 import Follow from "../models/followModel.js";
 import mongoose from "mongoose";
-
 import { createNotification } from "../controllers/notification/notificationcontroller.js";
 
 // 🔹 Follow a user
 export const followUser = async (req, res) => {
   try {
-    const { userId } = req.params; // যাকে follow করা হচ্ছে
-    const followerId = req.user.id; // যে follow করছে
+    const { userId } = req.params;
+    const followerId = req.user.id;
 
-    // ❌ নিজেকে follow করা যাবে না
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
     if (userId === followerId) {
       return res.status(400).json({ message: "You cannot follow yourself" });
     }
 
-    // ❌ আগেই follow করা আছে কিনা
-    const existing = await Follow.findOne({
-      followerId,
-      followingId: userId,
-    });
-
+    const existing = await Follow.findOne({ followerId, followingId: userId });
     if (existing) {
       return res.status(400).json({ message: "Already following this user" });
     }
 
-    // ✅ Follow create
-    const follow = await Follow.create({
-      followerId,
-      followingId: userId,
-    });
+    const follow = await Follow.create({ followerId, followingId: userId });
 
-    // 🔔 follower user info (actor)
-    const actorId = req.user.id;
-
-    // 🔔 Create follow notification
-    await createNotification({
-      userId, // যাকে notification যাবে
-      type: "follow",
-      actorId, // যে follow করেছে
-      // follow হলে postId/commentId লাগে না
-    });
+    try {
+      await createNotification({
+        userId,
+        type: "follow",
+        actorId: followerId,
+      });
+    } catch (err) {
+      console.error("Follow notification error:", err);
+    }
 
     return res.status(201).json({
       success: true,
@@ -59,17 +50,24 @@ export const unfollowUser = async (req, res) => {
     const { userId } = req.params;
     const followerId = req.user.id;
 
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
     const deleted = await Follow.findOneAndDelete({
       followerId,
       followingId: userId,
     });
+
     if (!deleted) {
       return res
         .status(400)
         .json({ message: "You are not following this user" });
     }
 
-    return res.status(200).json({ message: "User unfollowed successfully" });
+    return res
+      .status(200)
+      .json({ success: true, message: "User unfollowed successfully" });
   } catch (err) {
     console.error("Unfollow error:", err);
     return res.status(500).json({ message: "Server error" });
@@ -80,11 +78,18 @@ export const unfollowUser = async (req, res) => {
 export const getFollowers = async (req, res) => {
   try {
     const { userId } = req.params;
-    const followers = await Follow.find({ followingId: userId }).populate(
-      "followerId",
-      "username name"
-    );
-    return res.status(200).json(followers);
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
+    const followers = await Follow.find({ followingId: userId })
+      .populate("followerId", "name username profileImage")
+      .lean();
+
+    return res
+      .status(200)
+      .json({ success: true, count: followers.length, followers });
   } catch (err) {
     console.error("Get followers error:", err);
     return res.status(500).json({ message: "Server error" });
@@ -95,41 +100,72 @@ export const getFollowers = async (req, res) => {
 export const getFollowing = async (req, res) => {
   try {
     const { userId } = req.params;
-    const following = await Follow.find({ followerId: userId }).populate(
-      "followingId",
-      "_id profileImage name bio profilePicture"
-    );
-    return res.status(200).json(following);
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
+    const following = await Follow.find({ followerId: userId })
+      .populate("followingId", "name username profileImage bio")
+      .lean();
+
+    return res
+      .status(200)
+      .json({ success: true, count: following.length, following });
   } catch (err) {
     console.error("Get following error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
-// 🔹 Get Followers Count
+// 🔹 Get followers count
 export const getFollowersCount = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const count = await Follow.countDocuments({ followingId: userId });
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
 
-    return res.status(200).json({ followersCount: count });
+    const count = await Follow.countDocuments({ followingId: userId });
+    return res.status(200).json({ success: true, followersCount: count });
   } catch (err) {
-    console.error("Followers Count Error:", err);
+    console.error("Followers count error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
-// 🔹 Get Following Count
+// 🔹 Get following count
 export const getFollowingCount = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const count = await Follow.countDocuments({ followerId: userId });
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
 
-    return res.status(200).json({ followingCount: count });
+    const count = await Follow.countDocuments({ followerId: userId });
+    return res.status(200).json({ success: true, followingCount: count });
   } catch (err) {
-    console.error("Following Count Error:", err);
+    console.error("Following count error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// 🔹 Check if following
+export const checkIsFollowing = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const followerId = req.user.id;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
+    const exists = await Follow.findOne({ followerId, followingId: userId });
+    return res.status(200).json({ success: true, isFollowing: !!exists });
+  } catch (err) {
+    console.error("Check following error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };

@@ -10,6 +10,7 @@ import type { Post } from "@/types/postTypes";
 import PostCountleft from "../postcard/PostCountleft";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface Props {
   post: Post;
@@ -46,7 +47,10 @@ const CourseCardFeed = ({ post }: Props) => {
 
       {/* course info */}
       <div className="flex gap-4 px-6">
-        <div className="w-12 h-12 rounded-full border-border border shrink-0 overflow-hidden bg-accent/20">
+        <Link
+          href={`/${userid.username}`}
+          className="w-12 h-12 rounded-full border-border border shrink-0 overflow-hidden bg-accent/20"
+        >
           {userid.profileImage ? (
             <Image
               width={600}
@@ -60,7 +64,7 @@ const CourseCardFeed = ({ post }: Props) => {
               {userid.name?.charAt(0).toUpperCase()}
             </div>
           )}
-        </div>
+        </Link>
 
         <div className="w-full">
           <h3 className="line-clamp-2">{course?.title}</h3>
