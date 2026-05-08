@@ -1,6 +1,7 @@
 "use client";
 import CourseCardFeed from "@/components/ui/card/course/CourseCardFeed";
 import Postcard from "@/components/ui/card/postcard/Postcard";
+import PostCardSkeleton from "@/components/ui/card/postcard/PostCardSkeleton";
 import QuestionCard from "@/components/ui/card/questioncard/QuestionCard";
 import { useGetPostsQuery } from "@/redux/api/postApi";
 
@@ -9,29 +10,9 @@ export default function HomeFeed() {
 
   if (isLoading) {
     return (
-      <div className="w-full flex justify-center py-10">
-        <svg
-          className="animate-spin text-accent"
-          width="32"
-          height="32"
-          viewBox="0 0 24 24"
-          fill="none"
-        >
-          <circle
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-            className="opacity-25"
-          />
-          <path
-            d="M4 12a8 8 0 018-8"
-            stroke="currentColor"
-            strokeWidth="4"
-            className="opacity-75"
-          />
-        </svg>
+      <div className="w-full space-y-4">
+        <PostCardSkeleton />
+        <PostCardSkeleton />
       </div>
     );
   }
@@ -43,7 +24,7 @@ export default function HomeFeed() {
       </div>
     );
   }
-  console.log("posts data:", data?.posts);
+
   return (
     <div className="w-full flex flex-col gap-4 pb-10">
       {data?.posts.map((post) => {

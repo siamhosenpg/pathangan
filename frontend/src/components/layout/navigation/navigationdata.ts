@@ -21,6 +21,15 @@ export const navigationdata = [
   {
     name: "প্রশ্নসমূহ",
     link: "/questions",
+  },
+  {
+    name: "শিক্ষকবৃন্দ",
+    link: "/teachers",
+  },
+
+  {
+    name: "কোর্স সমূহ",
+    link: "/courses",
     submenu: [
       {
         name: "জুনিয়র স্কুল সার্টিফিকেট",
@@ -39,15 +48,6 @@ export const navigationdata = [
         link: "/university",
       },
     ],
-  },
-  {
-    name: "শিক্ষকবৃন্দ",
-    link: "/teachers",
-  },
-
-  {
-    name: "কোর্স সমূহ",
-    link: "/courses",
   },
   {
     name: "যোগাযোগ",

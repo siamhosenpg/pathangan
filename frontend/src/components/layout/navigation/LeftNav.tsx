@@ -10,7 +10,9 @@ import {
   AiOutlineMessage,
   AiOutlineShoppingCart,
   AiOutlineLogout,
+  AiOutlinePlusCircle,
 } from "react-icons/ai";
+import { AiOutlineSave } from "react-icons/ai";
 
 import { useLogoutMutation } from "@/redux/api/authApi";
 import { clearUser } from "@/redux/features/auth/authSlice";
@@ -24,23 +26,62 @@ interface NavItem {
 }
 
 const navData: NavItem[] = [
-  { id: 3, name: "খসড়া", icon: <AiOutlineFileText />, path: "/draft" },
+  {
+    id: 1,
+    name: "পোস্ট তৈরি",
+    icon: <AiOutlinePlusCircle />,
+    path: "/create-post",
+  },
+
+  {
+    id: 2,
+    name: "সংরক্ষিত",
+    icon: <AiOutlineSave />,
+    path: "/saved",
+  },
+
+  {
+    id: 3,
+    name: "খসড়া",
+    icon: <AiOutlineFileText />,
+    path: "/draft",
+  },
+
   {
     id: 4,
     name: "কার্যকলাপ",
     icon: <AiOutlineCheckSquare />,
     path: "/activity",
   },
-  { id: 5, name: "শিক্ষা", icon: <AiOutlineBook />, path: "/education" },
-  { id: 6, name: "ব্যবস্থা", icon: <AiOutlineSetting />, path: "/settings" },
+
+  {
+    id: 6,
+    name: "ব্যবস্থা",
+    icon: <AiOutlineSetting />,
+    path: "/settings",
+  },
+
   {
     id: 7,
     name: "ক্যালেন্ডার",
     icon: <AiOutlineCalendar />,
     path: "/calendar",
   },
-  { id: 8, name: "বিজ্ঞপ্তি", icon: <AiOutlineBell />, path: "/notifications" },
-  { id: 9, name: "বার্তা", icon: <AiOutlineMessage />, path: "/messages" },
+
+  {
+    id: 8,
+    name: "বিজ্ঞপ্তি",
+    icon: <AiOutlineBell />,
+    path: "/notifications",
+  },
+
+  {
+    id: 9,
+    name: "বার্তা",
+    icon: <AiOutlineMessage />,
+    path: "/messages",
+  },
+
   {
     id: 10,
     name: "কেনাকাটা",
@@ -48,7 +89,6 @@ const navData: NavItem[] = [
     path: "/shopping",
   },
 ];
-
 const LeftNav = () => {
   const dispatch = useAppDispatch();
   const router = useRouter();
