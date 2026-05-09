@@ -82,7 +82,11 @@ const Postcard = ({ post }: Props) => {
 
         {/* counts */}
         <div className="flex items-center justify-between px-6 py-1 border-b border-border">
-          <PostCountleft postId={post._id} />
+          <PostCountleft
+            likesCount={post.likesCount}
+            commentsCount={post.commentsCount}
+            sharesCount={post.sharesCount}
+          />
         </div>
 
         {/* actions */}

@@ -14,6 +14,17 @@ export interface EducationEntry {
   status: "running" | "completed";
 }
 
+export interface ActivityStats {
+  totalRating: number;
+  averageRating: number;
+  totalPosts: number;
+  totalLikesGiven: number;
+  totalLikesReceived: number;
+  totalComments: number;
+  totalFollowers: number;
+  totalFollowing: number;
+}
+
 export interface User {
   _id: string;
   userid: number;
@@ -24,13 +35,14 @@ export interface User {
   aboutText?: string;
   gender?: string;
   location?: string;
-  work?: WorkEntry[]; // ← array of objects
-  educations?: EducationEntry[]; // ← array of objects
+  work?: WorkEntry[];
+  educations?: EducationEntry[];
   profileImage?: string;
   coverImage?: string;
   role?: string;
   status?: string;
   createdAt?: string;
+  activityStats?: ActivityStats;
 }
 
 export interface GetUsersResponse {

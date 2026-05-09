@@ -1,42 +1,41 @@
 import React from "react";
 import BanglaNumber from "../../extra/Banglanumber";
-import { useGetReactionCountQuery } from "@/redux/api/reactionApi";
-import { useGetCommentsCountQuery } from "@/redux/api/commentApi";
 
-const PostCountleft = ({ postId }: { postId: string }) => {
-  const { data: reactionData, isLoading: reactionLoading } =
-    useGetReactionCountQuery(postId);
-  const { data: commentsData, isLoading: commentsLoading } =
-    useGetCommentsCountQuery(postId);
+interface Props {
+  likesCount?: number;
+  commentsCount?: number;
+  sharesCount?: number;
+}
 
+const PostCountleft = ({
+  likesCount = 0,
+  commentsCount = 0,
+  sharesCount = 0,
+}: Props) => {
   return (
     <div className="flex items-center gap-3">
       {/* reaction count */}
-
       <div className="flex items-center gap-1.5">
         <span className="font-medium">
-          <BanglaNumber
-            value={reactionLoading ? 0 : reactionData?.count || 0}
-          />
+          <BanglaNumber value={likesCount} />
         </span>
         <span className="text-sm">সমর্থন</span>
       </div>
 
       {/* comment count */}
-      {commentsData && commentsData.count > 0 && (
+      {commentsCount > 0 && (
         <div className="flex items-center gap-1.5">
           <span className="font-medium">
-            <BanglaNumber
-              value={commentsLoading ? 0 : commentsData?.count || 0}
-            />
+            <BanglaNumber value={commentsCount} />
           </span>
           <span className="text-sm">মতামত</span>
         </div>
       )}
 
-      <div className="flex items-center gap-1.5 ">
+      {/* share count */}
+      <div className="flex items-center gap-1.5">
         <span className="font-medium">
-          <BanglaNumber value={452} />
+          <BanglaNumber value={sharesCount} />
         </span>
         <span className="text-sm">প্রচার</span>
       </div>

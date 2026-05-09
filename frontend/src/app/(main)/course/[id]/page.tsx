@@ -63,7 +63,7 @@ export default function CourseDetailPage() {
     setActiveSlide((p) => (p === media.length - 1 ? 0 : p + 1));
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto  pb-14">
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 items-start">
         {/* ===== LEFT — course content ===== */}
         <div className="flex flex-col gap-5">

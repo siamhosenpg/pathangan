@@ -103,7 +103,7 @@ const ProfileTopSection = ({ data }: dataprops) => {
       </div>
 
       <div className="mt-3">
-        <FollowStats userId={data._id} />
+        <FollowStats activityStats={data.activityStats} />
       </div>
 
       {/* BIO + ABOUT */}

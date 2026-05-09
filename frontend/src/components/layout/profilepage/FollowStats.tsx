@@ -1,28 +1,17 @@
 "use client";
 
-import React from "react";
-
-import {
-  useGetFollowersCountQuery,
-  useGetFollowingCountQuery,
-} from "@/redux/api/followApi";
+import type { ActivityStats } from "@/types/usertypes";
 
 interface Props {
-  userId: string;
+  activityStats?: ActivityStats;
 }
 
-const FollowStats = ({ userId }: Props) => {
-  const { data: followersData, isLoading: loadingFollowers } =
-    useGetFollowersCountQuery(userId);
-
-  const { data: followingData, isLoading: loadingFollowing } =
-    useGetFollowingCountQuery(userId);
-
+const FollowStats = ({ activityStats }: Props) => {
   return (
     <div className="flex items-center gap-6 px-6">
       <div className="flex items-center gap-2">
         <span className="text-lg font-bold text-foreground">
-          {loadingFollowers ? "..." : (followersData?.followersCount ?? 0)}
+          {activityStats?.totalFollowers ?? 0}
         </span>
         <span className="text-sm text-muted-foreground">অনুসরণকারী</span>
       </div>
@@ -31,7 +20,7 @@ const FollowStats = ({ userId }: Props) => {
 
       <div className="flex items-center gap-2">
         <span className="text-lg font-bold text-foreground">
-          {loadingFollowing ? "..." : (followingData?.followingCount ?? 0)}
+          {activityStats?.totalFollowing ?? 0}
         </span>
         <span className="text-sm text-muted-foreground">অনুসরণ করছি</span>
       </div>

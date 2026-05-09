@@ -2,6 +2,33 @@ import mongoose from "mongoose";
 import Rating from "../../models/rating/ratingModel.js";
 import Answer from "../../models/answer/answerModel.js";
 import Post from "../../models/postmodel.js";
+import User from "../../models/userModel.js";
+
+// ===================== helper: recalculate & save =====================
+const syncUserRatingStats = async (answerUserId) => {
+  const stats = await Rating.aggregate([
+    { $match: { answerUserId: new mongoose.Types.ObjectId(answerUserId) } },
+    {
+      $group: {
+        _id: "$answerUserId",
+        averageRating: { $avg: "$rating" },
+        totalRatingCount: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const newAverage = stats[0]?.averageRating
+    ? parseFloat(stats[0].averageRating.toFixed(2))
+    : 0;
+  const totalRatingCount = stats[0]?.totalRatingCount || 0;
+
+  await User.findByIdAndUpdate(answerUserId, {
+    "activityStats.averageRating": newAverage,
+    "activityStats.totalRating": totalRatingCount,
+  });
+
+  return { newAverage, totalRatingCount };
+};
 
 // ===================== GIVE OR UPDATE RATING =====================
 export const giveRating = async (req, res) => {
@@ -24,20 +51,17 @@ export const giveRating = async (req, res) => {
     }
 
     const answer = await Answer.findOne({ _id: answerId, isDeleted: false });
-    if (!answer) {
-      return res.status(404).json({ message: "Answer not found" });
-    }
+    if (!answer) return res.status(404).json({ message: "Answer not found" });
 
     const questionId = answer.questionId;
-    const answerUserId = answer.userId; // ← answer যে করেছে তার id
+    const answerUserId = answer.userId;
 
     const questionPost = await Post.findOne({
       _id: questionId,
       postType: "question",
     });
-    if (!questionPost) {
+    if (!questionPost)
       return res.status(404).json({ message: "Question post not found" });
-    }
 
     if (answer.userId.toString() === userId.toString()) {
       return res
@@ -45,14 +69,18 @@ export const giveRating = async (req, res) => {
         .json({ message: "You cannot rate your own answer" });
     }
 
-    // answerUserId সহ upsert
+    // ✅ upsert আগে — তারপর aggregate
     const existingRating = await Rating.findOneAndUpdate(
       { userId, answerId },
       { rating, questionId, answerUserId },
       { new: true, upsert: true, runValidators: true },
     );
 
-    const stats = await Rating.aggregate([
+    // ✅ upsert হওয়ার পরে sync করো
+    await syncUserRatingStats(answerUserId);
+
+    // answer-level stats
+    const answerStats = await Rating.aggregate([
       { $match: { answerId: new mongoose.Types.ObjectId(answerId) } },
       {
         $group: {
@@ -63,10 +91,10 @@ export const giveRating = async (req, res) => {
       },
     ]);
 
-    const averageRating = stats[0]?.averageRating
-      ? parseFloat(stats[0].averageRating.toFixed(2))
+    const averageRating = answerStats[0]?.averageRating
+      ? parseFloat(answerStats[0].averageRating.toFixed(2))
       : rating;
-    const ratingCount = stats[0]?.ratingCount || 1;
+    const ratingCount = answerStats[0]?.ratingCount || 1;
 
     return res.status(200).json({
       success: true,
@@ -109,12 +137,9 @@ export const getRatingsByAnswer = async (req, res) => {
       : 0;
     const ratingCount = stats[0]?.ratingCount || 0;
 
-    return res.status(200).json({
-      success: true,
-      answerId,
-      averageRating,
-      ratingCount,
-    });
+    return res
+      .status(200)
+      .json({ success: true, answerId, averageRating, ratingCount });
   } catch (err) {
     console.error("getRatingsByAnswer error:", err);
     return res.status(500).json({ message: "Server error" });
@@ -165,10 +190,12 @@ export const deleteRating = async (req, res) => {
         .json({ message: "You have not rated this answer" });
     }
 
-    return res.status(200).json({
-      success: true,
-      message: "Rating removed successfully",
-    });
+    // ✅ delete পরে sync — সব rating মুছে গেলে 0 হবে
+    await syncUserRatingStats(rating.answerUserId);
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Rating removed successfully" });
   } catch (err) {
     console.error("deleteRating error:", err);
     return res.status(500).json({ message: "Server error" });
@@ -211,7 +238,8 @@ export const getRatingsByQuestion = async (req, res) => {
   }
 };
 
-// ===================== GET USER'S AVERAGE RATING (সে কতটুকু rating পেয়েছে) =====================
+// ===================== GET USER'S AVERAGE RATING =====================
+// ✅ aggregate নেই — সরাসরি User document থেকে
 export const getUserAverageRating = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -220,27 +248,15 @@ export const getUserAverageRating = async (req, res) => {
       return res.status(400).json({ message: "Invalid user ID" });
     }
 
-    const stats = await Rating.aggregate([
-      { $match: { answerUserId: new mongoose.Types.ObjectId(userId) } },
-      {
-        $group: {
-          _id: "$answerUserId",
-          averageRating: { $avg: "$rating" },
-          totalRatingCount: { $sum: 1 },
-        },
-      },
-    ]);
-
-    const averageRating = stats[0]?.averageRating
-      ? parseFloat(stats[0].averageRating.toFixed(2))
-      : 0;
-    const totalRatingCount = stats[0]?.totalRatingCount || 0;
+    const user = await User.findById(userId)
+      .select("activityStats.averageRating activityStats.totalRating")
+      .lean();
 
     return res.status(200).json({
       success: true,
       userId,
-      averageRating,
-      totalRatingCount,
+      averageRating: user?.activityStats?.averageRating || 0,
+      totalRatingCount: user?.activityStats?.totalRating || 0,
     });
   } catch (err) {
     console.error("getUserAverageRating error:", err);

@@ -142,6 +142,8 @@ const UserSchema = new Schema(
     badges: [{ type: String }],
 
     activityStats: {
+      totalRating: { type: Number, default: 0 },
+      averageRating: { type: Number, default: 0 },
       totalPosts: { type: Number, default: 0 },
       totalLikesGiven: { type: Number, default: 0 },
       totalLikesReceived: { type: Number, default: 0 },
@@ -179,5 +181,5 @@ UserSchema.pre("save", async function (next) {
 // =============================
 // 🔥 Model Export
 // =============================
-const User = mongoose.model("User", UserSchema);
+const User = mongoose.models.User || mongoose.model("User", UserSchema);
 export default User;

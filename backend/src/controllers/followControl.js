@@ -1,4 +1,5 @@
 import Follow from "../models/followModel.js";
+import User from "../models/userModel.js";
 import mongoose from "mongoose";
 import { createNotification } from "../controllers/notification/notificationcontroller.js";
 
@@ -22,6 +23,14 @@ export const followUser = async (req, res) => {
     }
 
     const follow = await Follow.create({ followerId, followingId: userId });
+
+    // ✅ counter update
+    await User.findByIdAndUpdate(userId, {
+      $inc: { "activityStats.totalFollowers": 1 },
+    });
+    await User.findByIdAndUpdate(followerId, {
+      $inc: { "activityStats.totalFollowing": 1 },
+    });
 
     try {
       await createNotification({
@@ -64,6 +73,14 @@ export const unfollowUser = async (req, res) => {
         .status(400)
         .json({ message: "You are not following this user" });
     }
+
+    // ✅ counter update
+    await User.findByIdAndUpdate(userId, {
+      $inc: { "activityStats.totalFollowers": -1 },
+    });
+    await User.findByIdAndUpdate(followerId, {
+      $inc: { "activityStats.totalFollowing": -1 },
+    });
 
     return res
       .status(200)
@@ -118,7 +135,7 @@ export const getFollowing = async (req, res) => {
   }
 };
 
-// 🔹 Get followers count
+// 🔹 Get followers count — activityStats থেকে, extra query নেই
 export const getFollowersCount = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -127,15 +144,21 @@ export const getFollowersCount = async (req, res) => {
       return res.status(400).json({ message: "Invalid user id" });
     }
 
-    const count = await Follow.countDocuments({ followingId: userId });
-    return res.status(200).json({ success: true, followersCount: count });
+    const user = await User.findById(userId)
+      .select("activityStats.totalFollowers")
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      followersCount: user?.activityStats?.totalFollowers || 0,
+    });
   } catch (err) {
     console.error("Followers count error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
-// 🔹 Get following count
+// 🔹 Get following count — activityStats থেকে, extra query নেই
 export const getFollowingCount = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -144,8 +167,14 @@ export const getFollowingCount = async (req, res) => {
       return res.status(400).json({ message: "Invalid user id" });
     }
 
-    const count = await Follow.countDocuments({ followerId: userId });
-    return res.status(200).json({ success: true, followingCount: count });
+    const user = await User.findById(userId)
+      .select("activityStats.totalFollowing")
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      followingCount: user?.activityStats?.totalFollowing || 0,
+    });
   } catch (err) {
     console.error("Following count error:", err);
     return res.status(500).json({ message: "Server error" });
