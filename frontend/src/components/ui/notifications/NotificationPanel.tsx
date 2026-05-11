@@ -1,8 +1,8 @@
-// components/ui/notification/NotificationPanel.tsx
 "use client";
 
 import React, { useRef, useCallback } from "react";
 import NotificationCard from "./NotificationCard";
+import { IoClose } from "react-icons/io5";
 
 import {
   useGetMyNotificationsInfiniteQuery,
@@ -12,7 +12,12 @@ import {
   useMarkAsReadMutation,
 } from "@/redux/api/notifications/notificationApi";
 
-const NotificationPanel = () => {
+interface Props {
+  onClose?: () => void;
+  mobile?: boolean;
+}
+
+const NotificationPanel = ({ onClose, mobile = false }: Props) => {
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } =
     useGetMyNotificationsInfiniteQuery({ limit: 15 });
 
@@ -38,9 +43,20 @@ const NotificationPanel = () => {
   );
 
   return (
-    <div className="flex flex-col bg-background h-[90vh] w-100 bg-bg-primary border border-border rounded-2xl shadow-xl overflow-hidden">
+    <div
+      className={`relative flex flex-col bg-background border border-border shadow-xl overflow-hidden ${
+        mobile
+          ? "w-screen rounded-t-3xl h-[80vh]"
+          : "h-[90vh] w-100 rounded-2xl"
+      }`}
+    >
+      {/* mobile drag handle */}
+      {mobile && (
+        <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-border z-10" />
+      )}
+
       {/* header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0 mt-1">
         <div className="flex items-center gap-2">
           <h2 className="text-base font-semibold text-text-primary">
             বিজ্ঞপ্তি
@@ -51,6 +67,7 @@ const NotificationPanel = () => {
             </span>
           )}
         </div>
+
         <div className="flex items-center gap-2">
           {unreadCount > 0 && (
             <button
@@ -66,6 +83,14 @@ const NotificationPanel = () => {
               className="text-xs text-red-500 hover:underline font-medium"
             >
               সব মুছুন
+            </button>
+          )}
+          {mobile && (
+            <button
+              onClick={onClose}
+              className="ml-1 p-1 rounded-full hover:bg-accent/10 transition-colors"
+            >
+              <IoClose size={18} className="text-text-secondary" />
             </button>
           )}
         </div>
@@ -103,7 +128,6 @@ const NotificationPanel = () => {
           />
         ))}
 
-        {/* sentinel */}
         <div ref={sentinelRef} className="h-2" />
 
         {isFetchingNextPage && (

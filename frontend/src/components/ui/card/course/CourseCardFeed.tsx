@@ -80,7 +80,11 @@ const CourseCardFeed = ({ post }: Props) => {
       {/* counts + actions */}
       <div className="mt-2 ">
         <div className="px-6 py-1 border-b border-border">
-          <PostCountleft postId={post._id} />
+          <PostCountleft
+            likesCount={post.likesCount}
+            commentsCount={post.commentsCount}
+            sharesCount={post.sharesCount}
+          />
         </div>
 
         <div className="px-6 py-3 flex items-center justify-between">
@@ -90,7 +94,7 @@ const CourseCardFeed = ({ post }: Props) => {
             <ShareButton />
           </div>
           <div className="flex items-center justify-end gap-4">
-            <button className="bg-accent text-white font-medium px-4 py-1.5 rounded-lg">
+            <button className="bg-accent hidden text-white font-medium px-4 py-1.5 rounded-lg">
               বার্তা পাঠান
             </button>
             <button className="flex items-center gap-1.5">

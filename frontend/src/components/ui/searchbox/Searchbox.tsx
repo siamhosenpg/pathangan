@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect } from "react";
 import { IoSearch } from "react-icons/io5";
 import { useRouter } from "next/navigation";
@@ -22,7 +20,7 @@ const Searchbox = () => {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex w-75 items-center gap-2 border border-accent/20 rounded-full overflow-hidden p-1"
+      className="flex w-full items-center gap-2 border border-accent/20 rounded-full bg-background overflow-hidden p-1"
     >
       <input
         type="text"

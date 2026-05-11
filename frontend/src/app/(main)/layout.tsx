@@ -1,6 +1,7 @@
 import Nav from "@/components/layout/navigation/Nav";
 import ProfileNavcard from "@/components/ui/profilecard/ProfileNavcard";
 import LeftNav from "@/components/layout/navigation/LeftNav";
+import MobileNavWrapper from "@/components/layout/navigation/MobileNavWrapper";
 
 export default function MainLayout({
   children,
@@ -10,6 +11,7 @@ export default function MainLayout({
   return (
     <>
       <Nav />
+      <MobileNavWrapper />
       <div className="w-full h-18"></div>
       <div className="Pagearea flex items-start gap-6 xl:gap-6 2xl:gap-6">
         <nav className="w-[25%] hidden lg:block shrink-0 sticky top-22.5 h-[calc(100vh-108px)] rounded-t-lg">
