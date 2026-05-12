@@ -45,7 +45,11 @@ const QuestionCard = ({ post }: Props) => {
       </div>
 
       <div className="px-6 py-1 mt-2 border-b border-border flex items-center justify-between">
-        <PostCountleft postId={post._id} />
+        <PostCountleft
+          likesCount={post.likesCount}
+          commentsCount={post.commentsCount}
+          sharesCount={post.sharesCount}
+        />
         <button className="text-sm font-medium text-accent hover:underline">
           আরো উত্তর দেখুন
         </button>
