@@ -1,5 +1,5 @@
 import Follow from "../models/followModel.js";
-import User from "../models/userModel.js";
+import User from "../models/usermodel.js";
 import mongoose from "mongoose";
 import { createNotification } from "../controllers/notification/notificationcontroller.js";
 
@@ -8,6 +8,8 @@ export const followUser = async (req, res) => {
   try {
     const { userId } = req.params;
     const followerId = req.user.id;
+
+    console.log("Follow attempt:", { userId, followerId });
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "Invalid user id" });
@@ -24,13 +26,20 @@ export const followUser = async (req, res) => {
 
     const follow = await Follow.create({ followerId, followingId: userId });
 
-    // ✅ counter update
-    await User.findByIdAndUpdate(userId, {
-      $inc: { "activityStats.totalFollowers": 1 },
-    });
-    await User.findByIdAndUpdate(followerId, {
-      $inc: { "activityStats.totalFollowing": 1 },
-    });
+    const result1 = await User.findByIdAndUpdate(
+      userId,
+      { $inc: { "activityStats.totalFollowers": 1 } },
+      { new: true },
+    );
+
+    const result2 = await User.findByIdAndUpdate(
+      followerId,
+      { $inc: { "activityStats.totalFollowing": 1 } },
+      { new: true },
+    );
+
+    console.log("Followed user activityStats:", result1?.activityStats);
+    console.log("Follower user activityStats:", result2?.activityStats);
 
     try {
       await createNotification({
@@ -59,6 +68,8 @@ export const unfollowUser = async (req, res) => {
     const { userId } = req.params;
     const followerId = req.user.id;
 
+    console.log("Unfollow attempt:", { userId, followerId });
+
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "Invalid user id" });
     }
@@ -74,13 +85,20 @@ export const unfollowUser = async (req, res) => {
         .json({ message: "You are not following this user" });
     }
 
-    // ✅ counter update
-    await User.findByIdAndUpdate(userId, {
-      $inc: { "activityStats.totalFollowers": -1 },
-    });
-    await User.findByIdAndUpdate(followerId, {
-      $inc: { "activityStats.totalFollowing": -1 },
-    });
+    const result1 = await User.findByIdAndUpdate(
+      userId,
+      { $inc: { "activityStats.totalFollowers": -1 } },
+      { new: true },
+    );
+
+    const result2 = await User.findByIdAndUpdate(
+      followerId,
+      { $inc: { "activityStats.totalFollowing": -1 } },
+      { new: true },
+    );
+
+    console.log("Unfollowed user activityStats:", result1?.activityStats);
+    console.log("Unfollower user activityStats:", result2?.activityStats);
 
     return res
       .status(200)
@@ -135,7 +153,7 @@ export const getFollowing = async (req, res) => {
   }
 };
 
-// 🔹 Get followers count — activityStats থেকে, extra query নেই
+// 🔹 Get followers count
 export const getFollowersCount = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -158,7 +176,7 @@ export const getFollowersCount = async (req, res) => {
   }
 };
 
-// 🔹 Get following count — activityStats থেকে, extra query নেই
+// 🔹 Get following count
 export const getFollowingCount = async (req, res) => {
   try {
     const { userId } = req.params;
