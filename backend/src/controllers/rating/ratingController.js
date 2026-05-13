@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Rating from "../../models/rating/ratingModel.js";
 import Answer from "../../models/answer/answerModel.js";
 import Post from "../../models/postmodel.js";
-import User from "../../models/userModel.js";
+import User from "../../models/usermodel.js";
 
 // ===================== helper: recalculate & save =====================
 const syncUserRatingStats = async (answerUserId) => {
