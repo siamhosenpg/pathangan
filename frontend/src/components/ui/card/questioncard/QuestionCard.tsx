@@ -27,11 +27,11 @@ const QuestionCard = ({ post }: Props) => {
   });
 
   return (
-    <div className="bg-background pt-6 rounded-xl " key={post._id}>
+    <div className="bg-background pt-4 md:pt-6 rounded-xl " key={post._id}>
       <PostProfiletop user={userid} createdAt={createdAt} />
-      <h3 className="mt-2 px-6">{question?.questionText}</h3>
+      <h3 className="mt-2 px-4 md:px-6">{question?.questionText}</h3>
 
-      <div className="px-6 mt-2 flex flex-col gap-2">
+      <div className="px-4 md:px-6 mt-2 flex flex-col gap-2">
         {isLoading ? (
           <>
             <div className="h-20 rounded-xl bg-background-secondary animate-pulse" />
@@ -44,7 +44,7 @@ const QuestionCard = ({ post }: Props) => {
         )}
       </div>
 
-      <div className="px-6 py-1 mt-2 border-b border-border flex items-center justify-between">
+      <div className=" px-4 md:px-6 py-1 mt-2 border-b border-border flex items-center justify-between">
         <PostCountleft
           likesCount={post.likesCount}
           commentsCount={post.commentsCount}
@@ -55,7 +55,7 @@ const QuestionCard = ({ post }: Props) => {
         </button>
       </div>
 
-      <div className="px-6 py-3.5 flex items-center justify-between">
+      <div className="px-4 md:px-6 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <LikeButton postId={_id} />
           <AnswerButton onClick={() => setShowAnswerPopup(true)} />

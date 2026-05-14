@@ -6,7 +6,7 @@ interface BanglaNumberProps {
 }
 
 const BanglaNumber = ({ value }: BanglaNumberProps) => {
-  return <span>{toBanglaNumber(value)}</span>;
+  return <span className="">{toBanglaNumber(value)}</span>;
 };
 
 export default BanglaNumber;

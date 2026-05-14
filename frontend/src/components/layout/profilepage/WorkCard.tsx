@@ -15,7 +15,7 @@ const WorkCard = ({ work }: workprops) => {
       </div>
       <div>
         <h5>{work.industry}</h5>
-        <span>{work.position}</span>
+        <span className="text-sm md:text-base">{work.position}</span>
       </div>
     </div>
   );

@@ -19,7 +19,7 @@ const EducationCard = ({ education }: educationprops) => {
       </div>
       <div>
         <h5>{education.institution}</h5>
-        <span>{education.degree}</span>
+        <span className="text-sm md:text-base">{education.degree}</span>
       </div>
     </div>
   );

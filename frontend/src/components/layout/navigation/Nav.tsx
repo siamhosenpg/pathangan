@@ -24,12 +24,12 @@ const Nav = () => {
   const [showSearch, setShowSearch] = React.useState(false);
 
   return (
-    <div className="bg-background border-b border-border h-18 fixed top-0 left-0 w-full z-50">
+    <div className="bg-background border-b border-border h-16 md:h-18 fixed top-0 left-0 w-full z-50">
       <div className="hidden w-5/12 mb-[-2] bg-green-600 h-1 absolute bottom-0"></div>
 
       <div className="Pagearea flex justify-between items-center h-full">
         {/* Left side */}
-        <div className="items-center gap-8 flex ml-6 md:ml-0">
+        <div className="items-center gap-8 flex ml-4 md:ml-0">
           <div className="w-30 h-full">
             <img
               className="w-full object-cover"
@@ -71,7 +71,7 @@ const Nav = () => {
         </div>
 
         {/* Right side */}
-        <div className="flex gap-2 md:gap-6 items-center flex-row-reverse md:flex-row w-full md:w-auto px-6 md:px-0">
+        <div className="flex gap-2 md:gap-6 items-center flex-row-reverse md:flex-row w-full md:w-auto px-4 md:px-0">
           <NotificationNav />
 
           {/* Mobile search toggle button */}
@@ -106,10 +106,9 @@ const Nav = () => {
       <div
         className={`md:hidden absolute left-0 w-full bg-linear-to-b from-background to-transparent  overflow-hidden transition-all duration-300 ease-in-out ${
           showSearch
-            ? "max-h-24 opacity-100 translate-y-0"
+            ? "max-h-24 opacity-100 translate-y-0 top-16"
             : "max-h-0 opacity-0 -translate-y-2"
         }`}
-        style={{ top: "72px" }}
       >
         <div className="px-4 py-2">
           <Searchbox />

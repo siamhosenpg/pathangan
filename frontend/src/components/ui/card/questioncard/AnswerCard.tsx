@@ -21,9 +21,9 @@ const AnswerCard = ({ answer, questionId }: Props) => {
   return (
     <div
       onClick={() => router.push(`/answer/${answer._id}`)}
-      className="flex gap-3 py-3 border border-border px-3 rounded-xl cursor-pointer active:scale-95 transition"
+      className="flex gap-2 md:gap-3 p-2.5 md:p-3 border border-border  rounded-xl cursor-pointer active:scale-95 transition"
     >
-      <div className="w-9 h-9 overflow-hidden rounded-full border-border border shrink-0 bg-background-tertiary">
+      <div className=" w-8 md:w-9 h-8 md:h-9 overflow-hidden rounded-full border-border border shrink-0 bg-background-tertiary">
         <img
           src={answer.userId.profileImage || "/image/hero.jpg"}
           alt={answer.userId.name}

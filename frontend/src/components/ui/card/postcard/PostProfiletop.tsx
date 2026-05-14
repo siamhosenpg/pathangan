@@ -6,6 +6,7 @@ import { HiBadgeCheck } from "react-icons/hi";
 import type { PostUser } from "@/types/postTypes";
 import Link from "next/link";
 import PostThreeDot from "./PostThreeDot";
+import BanglaNumber from "../../extra/Banglanumber";
 
 interface Props {
   user: PostUser;
@@ -28,11 +29,11 @@ const getTimeAgo = (dateStr: string): string => {
 
 const PostProfiletop = ({ user, createdAt }: Props) => {
   return (
-    <div className="top px-6 pb-1 flex items-center justify-between">
+    <div className="top px-4 md:px-6 pb-1 flex items-center justify-between">
       <div className="flex items-center gap-2">
         <Link
           href={`/${user.username}`}
-          className="w-12 h-12 rounded-full overflow-hidden border-border shrink-0 bg-accent/20"
+          className=" w-10 lg:w-12 h-10 lg:h-12 rounded-full overflow-hidden border-border shrink-0 bg-accent/20"
         >
           {user.profileImage ? (
             <Image
@@ -59,7 +60,7 @@ const PostProfiletop = ({ user, createdAt }: Props) => {
             <FollowButton targetUserId={user._id} />
           </div>
           <span className="block text-text-secondary -mt-0.5 text-sm">
-            {getTimeAgo(createdAt)}
+            <BanglaNumber value={getTimeAgo(createdAt)} />
           </span>
         </div>
       </div>

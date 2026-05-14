@@ -46,10 +46,10 @@ const CourseCardFeed = ({ post }: Props) => {
       </div>
 
       {/* course info */}
-      <div className="flex gap-4 px-6">
+      <div className="flex gap-3 md:gap-4 px-4 md:px-6">
         <Link
           href={`/${userid.username}`}
-          className="w-12 h-12 rounded-full border-border border shrink-0 overflow-hidden bg-accent/20"
+          className=" w-10 lg:w-12 h-10 lg:h-12 rounded-full border-border border shrink-0 overflow-hidden bg-accent/20"
         >
           {userid.profileImage ? (
             <Image
@@ -71,7 +71,9 @@ const CourseCardFeed = ({ post }: Props) => {
           <div className="flex items-center gap-2">
             <h3 className="text-sm">{userid.name}</h3>
             <span className="text-sm text-text-secondary">
-              {course?.price === 0 ? "বিনামূল্যে" : `৳${course?.price}`}
+              <BanglaNumber
+                value={course?.price === 0 ? "বিনামূল্যে" : `৳${course?.price}`}
+              />
             </span>
           </div>
         </div>
@@ -79,7 +81,7 @@ const CourseCardFeed = ({ post }: Props) => {
 
       {/* counts + actions */}
       <div className="mt-2 ">
-        <div className="px-6 py-1 border-b border-border">
+        <div className=" px-4 md:px-6 py-1 border-b border-border">
           <PostCountleft
             likesCount={post.likesCount}
             commentsCount={post.commentsCount}
@@ -87,7 +89,7 @@ const CourseCardFeed = ({ post }: Props) => {
           />
         </div>
 
-        <div className="px-6 py-3 flex items-center justify-between">
+        <div className=" px-4 md:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <LikeButton postId={post._id} />
             <CommentsButton />

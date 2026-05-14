@@ -28,13 +28,15 @@ const Postcard = ({ post }: Props) => {
     router.push(targetPath);
   };
   return (
-    <div className="bg-background pt-6 rounded-xl">
+    <div className="bg-background pt-4 md:pt-6 rounded-xl">
       <PostProfiletop user={userid} createdAt={createdAt} />
       <div>
-        {content?.title && <h3 className="mt-2 px-6">{content.title}</h3>}
+        {content?.title && (
+          <h3 className="mt-2 px-4 md:px-6">{content.title}</h3>
+        )}
 
         {content?.text && (
-          <div className="mt-2 px-6 ">
+          <div className="mt-2 px-4 md:px-6 ">
             <p
               className={`whitespace-pre-wrap ${!expanded && content.text.length > 200 ? "line-clamp-3" : ""}`}
             >
@@ -81,7 +83,7 @@ const Postcard = ({ post }: Props) => {
         )}
 
         {/* counts */}
-        <div className="flex items-center justify-between px-6 py-1 border-b border-border">
+        <div className="flex items-center justify-between px-4 md:px-6 py-1 border-b border-border">
           <PostCountleft
             likesCount={post.likesCount}
             commentsCount={post.commentsCount}
@@ -90,7 +92,7 @@ const Postcard = ({ post }: Props) => {
         </div>
 
         {/* actions */}
-        <div className="px-6 py-3.5 flex items-center justify-between">
+        <div className=" px-4 md:px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <LikeButton postId={post._id} />
             <CommentsButton onClick={handleGoToPost} />

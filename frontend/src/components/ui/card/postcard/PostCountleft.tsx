@@ -13,31 +13,31 @@ const PostCountleft = ({
   sharesCount = 0,
 }: Props) => {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3 ">
       {/* reaction count */}
       <div className="flex items-center gap-1.5">
-        <span className="font-medium">
+        <span className="font-medium text-xs lg:text-sm">
           <BanglaNumber value={likesCount} />
         </span>
-        <span className="text-sm">সমর্থন</span>
+        <span className=" text-xs lg:text-sm">সমর্থন</span>
       </div>
 
       {/* comment count */}
       {commentsCount > 0 && (
         <div className="flex items-center gap-1.5">
-          <span className="font-medium">
+          <span className="font-medium text-xs lg:text-sm">
             <BanglaNumber value={commentsCount} />
           </span>
-          <span className="text-sm">মতামত</span>
+          <span className=" text-xs lg:text-sm">মতামত</span>
         </div>
       )}
 
       {/* share count */}
       <div className="flex items-center gap-1.5">
-        <span className="font-medium">
+        <span className="font-medium text-xs lg:text-sm ">
           <BanglaNumber value={sharesCount} />
         </span>
-        <span className="text-sm">প্রচার</span>
+        <span className=" text-xs lg:text-sm">প্রচার</span>
       </div>
     </div>
   );
