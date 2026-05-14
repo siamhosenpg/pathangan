@@ -18,6 +18,7 @@ export interface AuthUser {
 }
 
 export interface AuthResponse {
+  token: string; // ← এটা add করো
   user: AuthUser;
   message: string;
 }

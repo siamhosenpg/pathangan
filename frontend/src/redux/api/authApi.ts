@@ -15,14 +15,31 @@ const authApi = baseApi.injectEndpoints({
         method: "POST",
         body,
       }),
+      async onQueryStarted(_, { queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          if (data.token) {
+            localStorage.setItem("token", data.token);
+          }
+        } catch {}
+      },
     }),
 
+    // ✅ এভাবে করো — onQueryStarted দিয়ে token save করো
     login: builder.mutation<AuthResponse, LoginRequest>({
       query: (body) => ({
         url: "/auth/login",
         method: "POST",
         body,
       }),
+      async onQueryStarted(_, { queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          if (data.token) {
+            localStorage.setItem("token", data.token);
+          }
+        } catch {}
+      },
     }),
 
     getMe: builder.query<GetMeResponse, void>({
@@ -33,10 +50,13 @@ const authApi = baseApi.injectEndpoints({
     }),
 
     logout: builder.mutation<LogoutResponse, void>({
-      query: () => ({
-        url: "/auth/logout",
-        method: "POST",
-      }),
+      query: () => ({ url: "/auth/logout", method: "POST" }),
+      async onQueryStarted(_, { queryFulfilled }) {
+        try {
+          await queryFulfilled;
+          localStorage.removeItem("token");
+        } catch {}
+      },
     }),
   }),
 });
