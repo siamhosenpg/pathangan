@@ -1,23 +1,16 @@
 import { baseApi } from "./baseApi";
+import { postApi } from "./postApi";
+
 import type {
   Comment,
   GetCommentsResponse,
   GetRepliesResponse,
   CreateCommentRequest,
   UpdateCommentRequest,
-  CommentCountResponse,
 } from "@/types/commentTypes";
 
 const commentApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // ===================== GET COUNT =====================
-    getCommentsCount: builder.query<CommentCountResponse, string>({
-      query: (postId) => `/comments/count/${postId}`,
-      providesTags: (result, error, postId) => [
-        { type: "Comment", id: `count-${postId}` },
-      ],
-    }),
-
     // ===================== GET COMMENTS =====================
     getCommentsByPost: builder.query<
       GetCommentsResponse,
@@ -27,6 +20,7 @@ const commentApi = baseApi.injectEndpoints({
         url: `/comments/${postId}`,
         params: { page, limit },
       }),
+
       providesTags: (result, error, { postId }) => [
         { type: "Comment", id: postId },
       ],
@@ -41,6 +35,7 @@ const commentApi = baseApi.injectEndpoints({
         url: `/comments/replies/${commentId}`,
         params: { page, limit },
       }),
+
       providesTags: (result, error, { commentId }) => [
         { type: "Comment", id: `replies-${commentId}` },
       ],
@@ -57,37 +52,82 @@ const commentApi = baseApi.injectEndpoints({
         body,
       }),
 
-      async onQueryStarted({ postId }, { dispatch, queryFulfilled }) {
+      async onQueryStarted(
+        { postId, parentCommentId },
+        { dispatch, queryFulfilled },
+      ) {
         try {
           const { data } = await queryFulfilled;
 
-          dispatch(
-            commentApi.util.updateQueryData(
-              "getCommentsByPost",
-              { postId },
-              (draft) => {
-                draft.data.unshift(data.data);
-                draft.total += 1;
-                draft.count += 1;
-              },
-            ),
-          );
+          // ===================== MAIN COMMENT =====================
+          if (!parentCommentId) {
+            dispatch(
+              commentApi.util.updateQueryData(
+                "getCommentsByPost",
+                { postId, page: 1, limit: 20 },
+                (draft) => {
+                  draft.data.unshift(data.data);
+                  draft.total += 1;
+                  draft.count += 1;
+                },
+              ),
+            );
 
-          dispatch(
-            commentApi.util.updateQueryData(
-              "getCommentsCount",
-              postId,
-              (draft) => {
-                draft.count += 1;
-              },
-            ),
-          );
-        } catch {}
+            // ===================== POSTS CACHE UPDATE (FIXED) =====================
+            dispatch(
+              postApi.util.updateQueryData(
+                "getPosts",
+                { limit: 10 }, // ❗ FIX: undefined removed
+                (draft: any) => {
+                  if (!draft?.pages) return;
+
+                  for (const page of draft.pages) {
+                    const post = page.data.find((p: any) => p._id === postId);
+
+                    if (post) {
+                      post.commentsCount += 1;
+                      break;
+                    }
+                  }
+                },
+              ),
+            );
+          }
+
+          // ===================== REPLY =====================
+          if (parentCommentId) {
+            dispatch(
+              commentApi.util.updateQueryData(
+                "getRepliesByComment",
+                {
+                  commentId: parentCommentId,
+                  page: 1,
+                  limit: 20,
+                },
+                (draft) => {
+                  draft.data.push(data.data);
+                  draft.totalReplies += 1;
+                  draft.count += 1;
+                },
+              ),
+            );
+          }
+        } catch (error) {
+          console.error(error);
+        }
       },
 
-      invalidatesTags: (result, error, { postId }) => [
+      invalidatesTags: (result, error, { postId, parentCommentId }) => [
         { type: "Comment", id: postId },
-        { type: "Comment", id: `count-${postId}` },
+
+        ...(parentCommentId
+          ? [
+              {
+                type: "Comment" as const,
+                id: `replies-${parentCommentId}`,
+              },
+            ]
+          : []),
       ],
     }),
 
@@ -101,6 +141,7 @@ const commentApi = baseApi.injectEndpoints({
         method: "PUT",
         body: { text },
       }),
+
       invalidatesTags: (result, error, { commentId }) => [
         { type: "Comment", id: commentId },
       ],
@@ -109,7 +150,11 @@ const commentApi = baseApi.injectEndpoints({
     // ===================== DELETE COMMENT =====================
     deleteComment: builder.mutation<
       { success: boolean; message: string },
-      { commentId: string; postId: string }
+      {
+        commentId: string;
+        postId: string;
+        parentCommentId?: string | null;
+      }
     >({
       query: ({ commentId }) => ({
         url: `/comments/${commentId}`,
@@ -117,49 +162,95 @@ const commentApi = baseApi.injectEndpoints({
       }),
 
       async onQueryStarted(
-        { commentId, postId },
+        { commentId, postId, parentCommentId },
         { dispatch, queryFulfilled },
       ) {
         try {
           await queryFulfilled;
 
-          dispatch(
-            commentApi.util.updateQueryData(
-              "getCommentsByPost",
-              { postId },
-              (draft) => {
-                draft.data = draft.data.filter((c) => c._id !== commentId);
-                draft.total -= 1;
-                draft.count -= 1;
-              },
-            ),
-          );
+          // ===================== MAIN COMMENT DELETE =====================
+          if (!parentCommentId) {
+            dispatch(
+              commentApi.util.updateQueryData(
+                "getCommentsByPost",
+                { postId, page: 1, limit: 20 },
+                (draft) => {
+                  draft.data = draft.data.filter((c) => c._id !== commentId);
 
-          dispatch(
-            commentApi.util.updateQueryData(
-              "getCommentsCount",
-              postId,
-              (draft) => {
-                draft.count = Math.max(0, draft.count - 1);
-              },
-            ),
-          );
-        } catch {}
+                  draft.total = Math.max(0, draft.total - 1);
+                  draft.count = Math.max(0, draft.count - 1);
+                },
+              ),
+            );
+
+            // ===================== POSTS CACHE UPDATE (FIXED) =====================
+            dispatch(
+              postApi.util.updateQueryData(
+                "getPosts",
+                { limit: 10 }, // ❗ FIX
+                (draft: any) => {
+                  if (!draft?.pages) return;
+
+                  for (const page of draft.pages) {
+                    const post = page.data.find((p: any) => p._id === postId);
+
+                    if (post) {
+                      post.commentsCount = Math.max(0, post.commentsCount - 1);
+                      break;
+                    }
+                  }
+                },
+              ),
+            );
+          }
+
+          // ===================== REPLY DELETE =====================
+          if (parentCommentId) {
+            dispatch(
+              commentApi.util.updateQueryData(
+                "getRepliesByComment",
+                {
+                  commentId: parentCommentId,
+                  page: 1,
+                  limit: 20,
+                },
+                (draft) => {
+                  draft.data = draft.data.filter((c) => c._id !== commentId);
+
+                  draft.totalReplies = Math.max(0, draft.totalReplies - 1);
+
+                  draft.count = Math.max(0, draft.count - 1);
+                },
+              ),
+            );
+          }
+        } catch (error) {
+          console.error(error);
+        }
       },
 
-      invalidatesTags: (result, error, { postId }) => [
+      invalidatesTags: (result, error, { postId, parentCommentId }) => [
         { type: "Comment", id: postId },
-        { type: "Comment", id: `count-${postId}` },
+
+        ...(parentCommentId
+          ? [
+              {
+                type: "Comment" as const,
+                id: `replies-${parentCommentId}`,
+              },
+            ]
+          : []),
       ],
     }),
   }),
 });
 
 export const {
-  useGetCommentsCountQuery,
   useGetCommentsByPostQuery,
   useGetRepliesByCommentQuery,
   useCreateCommentMutation,
   useUpdateCommentMutation,
   useDeleteCommentMutation,
 } = commentApi;
+
+export default commentApi;

@@ -57,7 +57,7 @@ const QuestionCard = ({ post }: Props) => {
 
       <div className="px-4 md:px-6 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <LikeButton postId={_id} />
+          <LikeButton postId={_id} initialLiked={post.isReacted} />
           <AnswerButton onClick={() => setShowAnswerPopup(true)} />
           <ShareButton />
         </div>

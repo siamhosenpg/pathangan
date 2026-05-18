@@ -94,7 +94,7 @@ const Postcard = ({ post }: Props) => {
         {/* actions */}
         <div className=" px-4 md:px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <LikeButton postId={post._id} />
+            <LikeButton postId={post._id} initialLiked={post.isReacted} />
             <CommentsButton onClick={handleGoToPost} />
             <ShareButton />
           </div>

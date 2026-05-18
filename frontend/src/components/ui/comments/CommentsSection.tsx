@@ -5,16 +5,15 @@ import CommentInput from "./CommentInput";
 import {
   useGetCommentsByPostQuery,
   useCreateCommentMutation,
-  useGetCommentsCountQuery,
 } from "@/redux/api/commentApi";
 
 interface Props {
   postId: string;
+  commentsCount: number;
 }
 
-export default function CommentsSection({ postId }: Props) {
+export default function CommentsSection({ postId, commentsCount }: Props) {
   const { data, isLoading } = useGetCommentsByPostQuery({ postId });
-  const { data: countData } = useGetCommentsCountQuery(postId);
 
   const [createComment] = useCreateCommentMutation();
 
@@ -26,7 +25,6 @@ export default function CommentsSection({ postId }: Props) {
     }
   };
 
-  // 🔥 API -> UI FORMAT
   const comments =
     data?.data.map((c) => ({
       id: c._id,
@@ -39,9 +37,7 @@ export default function CommentsSection({ postId }: Props) {
   return (
     <div className="flex flex-col h-full">
       <div className="px-5 py-3 border-b border-border">
-        <p className="text-sm font-semibold">
-          মন্তব্য ({countData?.count || 0})
-        </p>
+        <p className="text-sm font-semibold">মন্তব্য ({commentsCount || 0})</p>
       </div>
 
       <CommentList comments={comments} isLoading={isLoading} />

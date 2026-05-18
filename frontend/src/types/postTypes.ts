@@ -54,6 +54,7 @@ export interface Post {
   question?: QuestionPost;
   course?: CoursePost;
   privacy: "public" | "friends" | "private";
+  isReacted: boolean; // ← এটা add করো
   likesCount: number;
   commentsCount: number;
   sharesCount: number;

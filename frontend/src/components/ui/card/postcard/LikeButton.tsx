@@ -1,24 +1,29 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { FaRegHeart, FaHeart } from "react-icons/fa6";
+import { useToggleReactionMutation } from "@/redux/api/reactionApi";
 
-import {
-  useToggleReactionMutation,
-  useCheckUserLikedQuery,
-} from "@/redux/api/reactionApi";
-
-const LikeButton = ({ postId }: { postId: string }) => {
-  const { data } = useCheckUserLikedQuery(postId);
+const LikeButton = ({
+  postId,
+  initialLiked,
+}: {
+  postId: string;
+  initialLiked: boolean;
+}) => {
+  const [isLiked, setIsLiked] = useState(initialLiked);
   const [toggleReaction, { isLoading }] = useToggleReactionMutation();
+
+  useEffect(() => {
+    setIsLiked(initialLiked);
+  }, [initialLiked]);
 
   const handleLike = async () => {
     try {
-      await toggleReaction(postId).unwrap();
+      const res = await toggleReaction(postId).unwrap();
+      setIsLiked(res.liked);
     } catch (err) {
       console.error(err);
     }
   };
-
-  const isLiked = data?.liked;
 
   return (
     <button
@@ -29,13 +34,10 @@ const LikeButton = ({ postId }: { postId: string }) => {
       {isLiked ? (
         <FaHeart
           size={19}
-          className={`block transition-all duration-200 text-accent `}
+          className={`block transition-all duration-200 text-accent`}
         />
       ) : (
-        <FaRegHeart
-          size={19}
-          className={`block transition-all duration-200 `}
-        />
+        <FaRegHeart size={19} className={`block transition-all duration-200`} />
       )}
 
       <span

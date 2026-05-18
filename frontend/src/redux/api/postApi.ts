@@ -172,7 +172,7 @@ const postApi = baseApi.injectEndpoints({
     }),
   }),
 });
-
+export { postApi };
 export const {
   useGetPostsInfiniteQuery,
   useGetPostByIdQuery,

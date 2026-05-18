@@ -1,5 +1,6 @@
 import express from "express";
 import upload from "../middleware/upload.js";
+import { optionalProtect } from "../middleware/optionalProtect.js"; // ← import করো
 import {
   getPosts,
   createPost,
@@ -17,10 +18,10 @@ import { protect } from "../middleware/auth.js";
 const router = express.Router();
 
 // ✅ Static routes আগে
-router.get("/", getPosts);
-router.get("/user/:userid/count", getPostCountByUserId); // ← count আগে
-router.get("/user/:userid", getPostsByUserId); // ← তারপর userid
-router.get("/post/:id", getPostById); // ← static আগে
+router.get("/", optionalProtect, getPosts);
+router.get("/user/:userid/count", optionalProtect, getPostCountByUserId); // ← count আগে
+router.get("/user/:userid", optionalProtect, getPostsByUserId); // ← তারপর userid
+router.get("/post/:id", optionalProtect, getPostById); // ← static আগে
 
 // ✅ Create routes
 router.post("/", protect, upload.array("media", 10), createPost);

@@ -17,8 +17,7 @@ interface Props {
 }
 
 const CourseCardFeed = ({ post }: Props) => {
-  const { userid, course, likesCount, commentsCount, sharesCount, createdAt } =
-    post;
+  const { userid, course } = post;
   const thumbnail = course?.media?.find((m) => m.type === "image")?.url;
   const router = useRouter();
   return (
@@ -91,7 +90,7 @@ const CourseCardFeed = ({ post }: Props) => {
 
         <div className=" px-4 md:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <LikeButton postId={post._id} />
+            <LikeButton postId={post._id} initialLiked={post.isReacted} />
             <CommentsButton />
             <ShareButton />
           </div>

@@ -56,6 +56,11 @@ export const createComment = async (req, res) => {
       parentCommentId: parentCommentId || null,
     });
 
+    // ← এটা add করো
+    if (!parentCommentId) {
+      await Post.findByIdAndUpdate(postId, { $inc: { commentsCount: 1 } });
+    }
+
     await newComment.populate(
       "commentUserId",
       "name userid profileImage gender username badges",
@@ -174,7 +179,12 @@ export const deleteComment = async (req, res) => {
       Comment.deleteOne({ _id: commentId }),
       Comment.deleteMany({ parentCommentId: commentId }),
     ]);
-
+    // ← এটা add করো
+    if (!comment.parentCommentId) {
+      await Post.findByIdAndUpdate(comment.postId, {
+        $inc: { commentsCount: -1 },
+      });
+    }
     res.status(200).json({
       success: true,
       message: "Comment deleted successfully",
