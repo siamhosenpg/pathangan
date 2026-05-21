@@ -17,50 +17,105 @@ export const reactionApi = baseApi.injectEndpoints({
       }),
 
       async onQueryStarted(postId, { dispatch, queryFulfilled }) {
-        // ── Feed (getPosts infinite) cache update ──────────────
-        const patchFeed = dispatch(
-          baseApi.util.updateQueryData(
-            // ✅ এখন করো
-            "getPosts" as never,
-            { limit: 10 } as never,
-            (draft: any) => {
-              if (!draft?.pages) return;
-              for (const page of draft.pages) {
-                const post = page.posts?.find((p: any) => p._id === postId);
-                if (post) {
-                  const wasLiked = post.isReacted;
-                  post.isReacted = !wasLiked;
-                  post.likesCount = wasLiked
-                    ? post.likesCount - 1
-                    : post.likesCount + 1;
+        const patches: Array<{ undo: () => void }> = [];
+
+        const tryPatch = (patchFn: () => { undo: () => void }) => {
+          try {
+            patches.push(patchFn());
+          } catch {
+            // cache exist না করলে silently skip
+          }
+        };
+
+        // ── Feed (getPosts infinite) ──────────────────────────
+        tryPatch(() =>
+          dispatch(
+            baseApi.util.updateQueryData(
+              "getPosts" as never,
+              { limit: 10 } as never,
+              (draft: any) => {
+                if (!draft?.pages) return;
+                for (const page of draft.pages) {
+                  const post = page.posts?.find((p: any) => p._id === postId);
+                  if (post) {
+                    const wasLiked = post.isReacted;
+                    post.isReacted = !wasLiked;
+                    post.likesCount = wasLiked
+                      ? post.likesCount - 1
+                      : post.likesCount + 1;
+                  }
                 }
-              }
-            },
+              },
+            ),
           ),
         );
 
-        // ── Single post (getPostById) cache update ─────────────
-        const patchSingle = dispatch(
-          baseApi.util.updateQueryData(
-            "getPostById" as never,
-            postId as never,
-            (draft: any) => {
-              if (!draft) return;
-              const wasLiked = draft.isReacted;
-              draft.isReacted = !wasLiked;
-              draft.likesCount = wasLiked
-                ? draft.likesCount - 1
-                : draft.likesCount + 1;
-            },
+        // ── Single post (getPostById) ─────────────────────────
+        tryPatch(() =>
+          dispatch(
+            baseApi.util.updateQueryData(
+              "getPostById" as never,
+              postId as never,
+              (draft: any) => {
+                if (!draft) return;
+                const wasLiked = draft.isReacted;
+                draft.isReacted = !wasLiked;
+                draft.likesCount = wasLiked
+                  ? draft.likesCount - 1
+                  : draft.likesCount + 1;
+              },
+            ),
+          ),
+        );
+
+        // ── All Questions (infinite) ──────────────────────────
+        tryPatch(() =>
+          dispatch(
+            baseApi.util.updateQueryData(
+              "getAllQuestions" as never,
+              { limit: 10 } as never,
+              (draft: any) => {
+                if (!draft?.pages) return;
+                for (const page of draft.pages) {
+                  const post = page.questions?.find(
+                    (p: any) => p._id === postId,
+                  );
+                  if (post) {
+                    const wasLiked = post.isReacted;
+                    post.isReacted = !wasLiked;
+                    post.likesCount = wasLiked
+                      ? post.likesCount - 1
+                      : post.likesCount + 1;
+                  }
+                }
+              },
+            ),
+          ),
+        );
+
+        // ── Single Question (getQuestionById) ─────────────────
+        tryPatch(() =>
+          dispatch(
+            baseApi.util.updateQueryData(
+              "getQuestionById" as never,
+              postId as never,
+              (draft: any) => {
+                if (!draft) return;
+                const wasLiked = draft.isReacted;
+                draft.isReacted = !wasLiked;
+                draft.likesCount = wasLiked
+                  ? draft.likesCount - 1
+                  : draft.likesCount + 1;
+              },
+            ),
           ),
         );
 
         try {
           await queryFulfilled;
         } catch {
-          // ❌ error হলে দুটোই rollback
-          patchFeed.undo();
-          patchSingle.undo();
+          // ❌ API fail হলে সব patch rollback
+          patches.forEach((p) => p.undo());
         }
       },
     }),
