@@ -63,7 +63,10 @@ export default function PostDetailPage() {
           className="bg-background rounded-2xl overflow-hidden sticky top-4"
           style={{ height: "80vh" }}
         >
-          <CommentsSection postId={post._id} />
+          <CommentsSection
+            postId={post._id}
+            commentsCount={post.commentsCount}
+          />
         </div>
       </div>
     </div>
