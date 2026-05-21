@@ -4,11 +4,12 @@ import {
   getQuestionsByUserId,
   getQuestionById,
 } from "../../controllers/post/questionPostController.js";
+import { optionalProtect } from "../../middleware/optionalProtect.js";
 
 const router = express.Router();
 
-router.get("/", getAllQuestions);
-router.get("/user/:userid", getQuestionsByUserId);
-router.get("/:id", getQuestionById);
+router.get("/", optionalProtect, getAllQuestions);
+router.get("/user/:userid", optionalProtect, getQuestionsByUserId);
+router.get("/:id", optionalProtect, getQuestionById);
 
 export default router;

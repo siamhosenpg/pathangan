@@ -1,7 +1,7 @@
 import { baseApi } from "../baseApi";
-
 import { Post } from "@/types/postTypes";
 
+// ── Response Types ─────────────────────────────────────
 interface GetQuestionsResponse {
   questions: Post[];
   nextCursor: string | null;
@@ -13,41 +13,76 @@ interface GetQuestionsByUserResponse {
   nextCursor: string | null;
 }
 
+// ── Params Types ───────────────────────────────────────
 interface GetQuestionsParams {
   limit?: number;
-  cursor?: string | null;
 }
 
+interface GetQuestionsByUserParams {
+  userid: string;
+  limit?: number;
+}
+
+// ── API ────────────────────────────────────────────────
 const questionApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getAllQuestions: builder.query<GetQuestionsResponse, GetQuestionsParams>({
-      query: ({ limit = 10, cursor } = {}) => ({
-        url: "/questions",
-        params: { limit, ...(cursor && { cursor }) },
-      }),
-      providesTags: ["Post"],
-    }),
-
-    getQuestionsByUserId: builder.query<
-      GetQuestionsByUserResponse,
-      GetQuestionsParams & { userid: string }
+    // ===================== ALL QUESTIONS (INFINITE) =====================
+    getAllQuestions: builder.infiniteQuery<
+      GetQuestionsResponse,
+      GetQuestionsParams,
+      string | null
     >({
-      query: ({ userid, limit = 10, cursor }) => ({
-        url: `/questions/user/${userid}`,
-        params: { limit, ...(cursor && { cursor }) },
+      query: ({ queryArg, pageParam }) => ({
+        url: "/questions",
+        params: {
+          limit: queryArg.limit ?? 10,
+          ...(pageParam && { cursor: pageParam }),
+        },
       }),
+
+      infiniteQueryOptions: {
+        initialPageParam: null,
+        getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+      },
+
       providesTags: ["Post"],
     }),
 
-    getQuestionById: builder.query<Post, string>({
+    // ===================== USER QUESTIONS (INFINITE) =====================
+    getQuestionsByUserId: builder.infiniteQuery<
+      GetQuestionsByUserResponse,
+      GetQuestionsByUserParams,
+      string | null
+    >({
+      query: ({ queryArg, pageParam }) => ({
+        url: `/questions/user/${queryArg.userid}`,
+        params: {
+          limit: queryArg.limit ?? 10,
+          ...(pageParam && { cursor: pageParam }),
+        },
+      }),
+
+      infiniteQueryOptions: {
+        initialPageParam: null,
+        getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+      },
+
+      providesTags: (_result, _err, arg) => [
+        { type: "Post", id: `USER_QUESTIONS_${arg.userid}` },
+      ],
+    }),
+
+    // ===================== SINGLE QUESTION =====================
+    getQuestionById: builder.query<Post & { isReacted: boolean }, string>({
       query: (id) => `/questions/${id}`,
-      providesTags: ["Post"],
+
+      providesTags: (_result, _err, id) => [{ type: "Post", id }],
     }),
   }),
 });
 
 export const {
-  useGetAllQuestionsQuery,
-  useGetQuestionsByUserIdQuery,
+  useGetAllQuestionsInfiniteQuery,
+  useGetQuestionsByUserIdInfiniteQuery,
   useGetQuestionByIdQuery,
 } = questionApi;

@@ -196,7 +196,7 @@ export default function CourseDetailPage() {
                 )}
               </div>
               <div className="flex items-center gap-4">
-                <LikeButton postId={post._id} />
+                <LikeButton postId={post._id} initialLiked={post.isReacted} />
                 {post._id && <BookmarkButton postId={post._id} />}
               </div>
             </div>
@@ -208,7 +208,10 @@ export default function CourseDetailPage() {
           className="bg-background rounded-2xl overflow-hidden sticky top-4"
           style={{ height: "80vh" }}
         >
-          <CommentsSection postId={post._id} />
+          <CommentsSection
+            commentsCount={post.commentsCount}
+            postId={post._id}
+          />
         </div>
       </div>
     </div>
