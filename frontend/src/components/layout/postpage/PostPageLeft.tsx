@@ -80,7 +80,7 @@ export default function PostPageLeft({ post }: Props) {
       {/* actions */}
       <div className="px-5 py-3 flex items-center justify-between border-t border-border mt-4">
         <div className="flex items-center gap-5">
-          <LikeButton postId={post._id} />
+          <LikeButton postId={post._id} initialLiked={post.isReacted} />
           <CommentsButton />
           <ShareButton />
         </div>
