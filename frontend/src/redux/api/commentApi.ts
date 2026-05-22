@@ -52,6 +52,7 @@ const commentApi = baseApi.injectEndpoints({
         body,
       }),
 
+      // ===================== CREATE COMMENT - onQueryStarted =====================
       async onQueryStarted(
         { postId, parentCommentId },
         { dispatch, queryFulfilled },
@@ -59,7 +60,6 @@ const commentApi = baseApi.injectEndpoints({
         try {
           const { data } = await queryFulfilled;
 
-          // ===================== MAIN COMMENT =====================
           if (!parentCommentId) {
             dispatch(
               commentApi.util.updateQueryData(
@@ -73,17 +73,16 @@ const commentApi = baseApi.injectEndpoints({
               ),
             );
 
-            // ===================== POSTS CACHE UPDATE (FIXED) =====================
             dispatch(
               postApi.util.updateQueryData(
                 "getPosts",
-                { limit: 10 }, // ❗ FIX: undefined removed
+                { limit: 10 },
                 (draft: any) => {
                   if (!draft?.pages) return;
 
                   for (const page of draft.pages) {
-                    const post = page.data.find((p: any) => p._id === postId);
-
+                    // ✅ page.posts — backend এর response key
+                    const post = page.posts?.find((p: any) => p._id === postId);
                     if (post) {
                       post.commentsCount += 1;
                       break;
@@ -94,16 +93,11 @@ const commentApi = baseApi.injectEndpoints({
             );
           }
 
-          // ===================== REPLY =====================
           if (parentCommentId) {
             dispatch(
               commentApi.util.updateQueryData(
                 "getRepliesByComment",
-                {
-                  commentId: parentCommentId,
-                  page: 1,
-                  limit: 20,
-                },
+                { commentId: parentCommentId, page: 1, limit: 20 },
                 (draft) => {
                   draft.data.push(data.data);
                   draft.totalReplies += 1;
@@ -161,6 +155,7 @@ const commentApi = baseApi.injectEndpoints({
         method: "DELETE",
       }),
 
+      // ===================== DELETE COMMENT - onQueryStarted =====================
       async onQueryStarted(
         { commentId, postId, parentCommentId },
         { dispatch, queryFulfilled },
@@ -168,7 +163,6 @@ const commentApi = baseApi.injectEndpoints({
         try {
           await queryFulfilled;
 
-          // ===================== MAIN COMMENT DELETE =====================
           if (!parentCommentId) {
             dispatch(
               commentApi.util.updateQueryData(
@@ -176,24 +170,22 @@ const commentApi = baseApi.injectEndpoints({
                 { postId, page: 1, limit: 20 },
                 (draft) => {
                   draft.data = draft.data.filter((c) => c._id !== commentId);
-
                   draft.total = Math.max(0, draft.total - 1);
                   draft.count = Math.max(0, draft.count - 1);
                 },
               ),
             );
 
-            // ===================== POSTS CACHE UPDATE (FIXED) =====================
             dispatch(
               postApi.util.updateQueryData(
                 "getPosts",
-                { limit: 10 }, // ❗ FIX
+                { limit: 10 },
                 (draft: any) => {
                   if (!draft?.pages) return;
 
                   for (const page of draft.pages) {
-                    const post = page.data.find((p: any) => p._id === postId);
-
+                    // ✅ page.posts — backend এর response key
+                    const post = page.posts?.find((p: any) => p._id === postId);
                     if (post) {
                       post.commentsCount = Math.max(0, post.commentsCount - 1);
                       break;
@@ -204,21 +196,14 @@ const commentApi = baseApi.injectEndpoints({
             );
           }
 
-          // ===================== REPLY DELETE =====================
           if (parentCommentId) {
             dispatch(
               commentApi.util.updateQueryData(
                 "getRepliesByComment",
-                {
-                  commentId: parentCommentId,
-                  page: 1,
-                  limit: 20,
-                },
+                { commentId: parentCommentId, page: 1, limit: 20 },
                 (draft) => {
                   draft.data = draft.data.filter((c) => c._id !== commentId);
-
                   draft.totalReplies = Math.max(0, draft.totalReplies - 1);
-
                   draft.count = Math.max(0, draft.count - 1);
                 },
               ),

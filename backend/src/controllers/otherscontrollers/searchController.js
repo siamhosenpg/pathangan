@@ -66,7 +66,10 @@ export const globalSearch = async (req, res) => {
     const posts = await Post.find(postQuery)
       .limit(10)
       .populate("userid", "name username profileImage")
-      .select("_id postType content course question createdAt userid");
+
+      .select(
+        "_id postType content course question createdAt userid likesCount commentsCount",
+      );
 
     // ===== RELEVANCE SORT =====
     // exact phrase match কে আগে দেখাবে
