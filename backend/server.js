@@ -52,11 +52,22 @@ const port = process.env.PORT || 5000;
 // Middleware
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:8081",
-      "https://pathangan.vercel.app",
-    ],
+    origin: function (origin, callback) {
+      // allowed origins
+      const allowedOrigins = [
+        "http://localhost:3000",
+        "http://localhost:8081",
+        "https://pathangan.vercel.app",
+      ];
+
+      // Mobile app বা Postman থেকে আসলে origin null/undefined হয়
+      // সেটাও allow করতে হবে
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
