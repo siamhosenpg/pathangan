@@ -6,6 +6,7 @@ import type { User } from "@/types/usertypes";
 import FollowStats from "./FollowStats";
 import Link from "next/link";
 import UserRating from "@/components/ui/star/UserRating";
+import GreenMark from "@/components/ui/badges/GreenMark";
 
 interface dataprops {
   data: User;
@@ -56,7 +57,14 @@ const ProfileTopSection = ({ data }: dataprops) => {
 
           {/* NAME + RATING */}
           <div className="mt-1 md:mt-2">
-            <h1 className="text-base md:text-xl font-bold">{data.name}</h1>
+            <h1 className="text-base md:text-xl font-bold flex items-center gap-2">
+              {data.name}
+              <span>
+                {data.greenmarkVerified && (
+                  <GreenMark mark={data.greenmarkVerified} style="text-lg" />
+                )}
+              </span>
+            </h1>
             <div className="mt-1">
               <UserRating userId={data._id} />
             </div>

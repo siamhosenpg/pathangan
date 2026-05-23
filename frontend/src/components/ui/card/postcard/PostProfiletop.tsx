@@ -7,6 +7,7 @@ import type { PostUser } from "@/types/postTypes";
 import Link from "next/link";
 import PostThreeDot from "./PostThreeDot";
 import BanglaNumber from "../../extra/Banglanumber";
+import GreenMark from "../../badges/GreenMark";
 
 interface Props {
   user: PostUser;
@@ -53,8 +54,10 @@ const PostProfiletop = ({ user, createdAt }: Props) => {
           <div className="flex items-center gap-3">
             <h5 className="flex items-center gap-1.5">
               {user.name}
-              {user?.badges && user.badges.length > 0 && (
-                <HiBadgeCheck className="text-accent" />
+              {user.greenmarkVerified && (
+                <span className="text-accent ">
+                  <GreenMark mark={user.greenmarkVerified} />
+                </span>
               )}
             </h5>
             <FollowButton targetUserId={user._id} />

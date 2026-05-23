@@ -3,6 +3,7 @@ export interface NotificationActor {
   name: string;
   username: string;
   profileImage?: string;
+  greenmarkVerified?: boolean;
   gender?: string;
 }
 

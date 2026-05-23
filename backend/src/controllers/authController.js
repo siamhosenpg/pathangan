@@ -59,6 +59,7 @@ export async function register(req, res) {
         username: user.username,
         name: user.name,
         email: user.email,
+        greenmarkVerified: user.greenmarkVerified || false,
       },
       message: "Registration successful",
     });
@@ -102,6 +103,7 @@ export async function login(req, res) {
         username: user.username || "",
         name: user.name,
         email: user.email,
+        greenmarkVerified: user.greenmarkVerified || false,
       },
       message: "Login successful",
     });

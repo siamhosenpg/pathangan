@@ -140,6 +140,7 @@ const UserSchema = new Schema(
     },
 
     badges: [{ type: String }],
+    greenmarkVerified: { type: Boolean, default: false },
 
     activityStats: {
       totalRating: { type: Number, default: 0 },

@@ -11,12 +11,12 @@ export const getPosts = async (req, res) => {
     const query = cursor ? { createdAt: { $lt: cursor } } : {};
 
     const posts = await Post.find(query)
-      .populate("userid", "name username badges profileImage gender")
+      .populate("userid", "name username greenmarkVerified profileImage gender")
       .populate({
         path: "content.parentPost",
         populate: {
           path: "userid",
-          select: "name username badges profileImage gender",
+          select: "name username greenmarkVerified profileImage gender",
         },
       })
       .sort({ createdAt: -1 })
@@ -70,12 +70,15 @@ export const getPostById = async (req, res) => {
     }
 
     const post = await Post.findById(id)
-      .populate("userid", "name username badges bio profileImage gender")
+      .populate(
+        "userid",
+        "name username greenmarkVerified bio profileImage gender",
+      )
       .populate({
         path: "content.parentPost",
         populate: {
           path: "userid",
-          select: "name username badges profileImage gender",
+          select: "name username greenmarkVerified bio profileImage gender",
         },
       })
       .lean(); // ← .lean() দাও
@@ -120,7 +123,10 @@ export const getPostsByUserId = async (req, res) => {
     if (postType) query.postType = postType;
 
     const posts = await Post.find(query)
-      .populate("userid", "name username bio badges profileImage gender")
+      .populate(
+        "userid",
+        "name username greenmarkVerified bio profileImage gender",
+      )
       .sort({ createdAt: -1 })
       .limit(limit + 1)
       .lean(); // ← .lean() দাও
@@ -219,7 +225,10 @@ export const createPost = async (req, res) => {
       privacy: privacy || "public",
     });
 
-    await newPost.populate("userid", "name badges username profileImage");
+    await newPost.populate(
+      "userid",
+      "name username greenmarkVerified profileImage",
+    );
     res.status(201).json({ success: true, post: newPost });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -256,7 +265,10 @@ export const createQuestionPost = async (req, res) => {
       privacy: privacy || "public",
     });
 
-    await newPost.populate("userid", "name badges username profileImage");
+    await newPost.populate(
+      "userid",
+      "name username greenmarkVerified profileImage",
+    );
     res.status(201).json({ success: true, post: newPost });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -317,7 +329,10 @@ export const createCoursePost = async (req, res) => {
       privacy: privacy || "public",
     });
 
-    await newPost.populate("userid", "name badges username profileImage");
+    await newPost.populate(
+      "userid",
+      "name username greenmarkVerified profileImage",
+    );
     res.status(201).json({ success: true, post: newPost });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -364,7 +379,10 @@ export const createSharePost = async (req, res) => {
     });
 
     await Post.findByIdAndUpdate(parentPost, { $inc: { sharesCount: 1 } });
-    await sharePost.populate("userid", "name username badges profileImage");
+    await sharePost.populate(
+      "userid",
+      "name username greenmarkVerified profileImage",
+    );
 
     res.status(201).json({ success: true, post: sharePost });
   } catch (error) {
@@ -398,7 +416,10 @@ export const updatePost = async (req, res) => {
     if (req.body.privacy) post.privacy = req.body.privacy;
 
     const updatedPost = await post.save();
-    await updatedPost.populate("userid", "name badges username profileImage");
+    await updatedPost.populate(
+      "userid",
+      "name username greenmarkVerified profileImage",
+    );
 
     res.json({ success: true, post: updatedPost });
   } catch (err) {

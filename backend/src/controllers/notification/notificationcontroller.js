@@ -61,7 +61,10 @@ export const getMyNotifications = async (req, res) => {
     }
 
     const notifications = await Notification.find(query)
-      .populate("actorId", "name username profileImage gender")
+      .populate(
+        "actorId",
+        "name username profileImage greenmarkVerified gender",
+      )
       .sort({ _id: -1 })
       .limit(limit + 1)
       .lean();

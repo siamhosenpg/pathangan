@@ -15,6 +15,7 @@ export interface AuthUser {
   name: string;
   profileImage?: string;
   email: string;
+  greenmarkVerified?: boolean;
 }
 
 export interface AuthResponse {

@@ -7,6 +7,7 @@ import StarRating from "../star/StarRating";
 import { useAppSelector } from "@/redux/hooks";
 import Link from "next/link";
 import UserRating from "../star/UserRating";
+import GreenMark from "../badges/GreenMark";
 
 const ProfileNavcard = () => {
   const { user } = useAppSelector((state) => state.auth);
@@ -52,7 +53,13 @@ const ProfileNavcard = () => {
       <div>
         <div className="flex items-center gap-3">
           <h5 className="flex items-center gap-1.5">
-            {user.name} <HiBadgeCheck className="text-accent" />
+            {user.name}
+            {user.greenmarkVerified}
+            {user.greenmarkVerified && (
+              <span className="text-accent">
+                <GreenMark mark={user.greenmarkVerified} />
+              </span>
+            )}
           </h5>
         </div>
         <div className="text-sm">

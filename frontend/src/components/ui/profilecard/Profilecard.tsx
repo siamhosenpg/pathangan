@@ -3,6 +3,7 @@ import FollowButton from "../buttons/FollowButton";
 import type { User } from "@/types/usertypes";
 import Image from "next/image";
 import Link from "next/link";
+import GreenMark from "../badges/GreenMark";
 interface UserProps {
   user: User;
 }
@@ -35,7 +36,12 @@ const Profilecard = ({ user }: UserProps) => {
           )}
         </Link>
         <div>
-          <h5>{user?.name}</h5>
+          <h5 className="flex items-center gap-1.5">
+            {user?.name}{" "}
+            {user?.greenmarkVerified && (
+              <GreenMark mark={user.greenmarkVerified} />
+            )}
+          </h5>
           {user?.bio && (
             <span className="block mt-0.5 text-sm font-medium text-text-tertiary">
               {user?.bio}

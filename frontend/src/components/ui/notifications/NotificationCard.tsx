@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 import type { Notification } from "@/types/notifications/notificationTypes";
+import GreenMark from "../badges/GreenMark";
 
 interface Props {
   notification: Notification;
@@ -100,7 +101,12 @@ const NotificationCard = ({ notification, onRead, onDelete }: Props) => {
       {/* text */}
       <div className="flex-1 min-w-0">
         <p className="text-sm text-text-primary leading-snug">
-          <span className="font-semibold">{actorId?.name}</span>{" "}
+          <span className="font-semibold flex items-center gap-1">
+            {actorId?.name}{" "}
+            {actorId?.greenmarkVerified && (
+              <GreenMark mark={actorId.greenmarkVerified} />
+            )}
+          </span>{" "}
           <span className="text-text-secondary">
             {getNotificationText(type)}
           </span>

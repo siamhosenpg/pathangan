@@ -4,7 +4,7 @@ export interface PostUser {
   name: string;
   username: string;
   profileImage?: string;
-  badges?: string[];
+  greenmarkVerified?: boolean;
   gender?: string;
   bio?: string;
 }

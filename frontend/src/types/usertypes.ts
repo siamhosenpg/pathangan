@@ -35,6 +35,8 @@ export interface User {
   aboutText?: string;
   gender?: string;
   location?: string;
+  badges?: string[];
+  greenmarkVerified?: boolean;
   work?: WorkEntry[];
   educations?: EducationEntry[];
   profileImage?: string;
