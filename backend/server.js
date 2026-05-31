@@ -1,22 +1,17 @@
-// Import dependencies (ESM syntax)
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 import cookieParser from "cookie-parser";
-import http from "http"; // <-- important
 
-import { PORT } from "./src/config/config.js";
 import { connectDB } from "./src/config/db.js";
 
-// Import socket
-import { initSocket } from "./src/socket/socket.js";
-
-// Import routes (must include .js extension)
+// Import routes
 import authRoutes from "./src/routes/authRoutes.js";
 import postsRoute from "./src/routes/postsroute.js";
 import questionRoutes from "./src/routes/post/questionRoute.js";
+import courseRoutes from "./src/routes/post/courseRoutes.js";
 import answerRoutes from "./src/routes/answer/answerRoutes.js";
 import usersRoute from "./src/routes/usersroute.js";
 import reactionRoutes from "./src/routes/reactionRoutes.js";
@@ -24,9 +19,7 @@ import commentRoutes from "./src/routes/commentRoutes.js";
 import followroutes from "./src/routes/followRoutes.js";
 import savedCollectionRoutes from "./src/routes/savesystem/savedCollectionroutes.js";
 import savedItemRoutes from "./src/routes/savesystem/savedItemroutes.js";
-
 import ratingRoutes from "./src/routes/rating/ratingRoutes.js";
-
 import notificationRoutes from "./src/routes/notification/notificationroutes.js";
 import searchRoutes from "./src/routes/otherroutes/searchRoute.js";
 import videoPostRoutes from "./src/routes/post/videopostroute.js";
@@ -35,33 +28,26 @@ import peopleRoutes from "./src/routes/user/peopleRoutes.js";
 import messageRoutes from "./src/routes/message/messageRoutes.js";
 import conversationRoutes from "./src/routes/message/conversationRoutes.js";
 import activityRoutes from "./src/routes/acativity/acativityRoutes.js";
+import { optionalAuth } from "./src/middleware/auth.js";
 
-// Load environment variables
 dotenv.config();
 
-// Create __dirname equivalent (since not available in ESM)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize Express app
 const app = express();
-
-app.set("trust proxy", 1);
 const port = process.env.PORT || 5000;
 
-// Middleware
+app.set("trust proxy", 1);
+
 app.use(
   cors({
     origin: function (origin, callback) {
-      // allowed origins
       const allowedOrigins = [
         "http://localhost:3000",
         "http://localhost:8081",
         "https://pathangan.vercel.app",
       ];
-
-      // Mobile app বা Postman থেকে আসলে origin null/undefined হয়
-      // সেটাও allow করতে হবে
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -78,7 +64,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Use routes
+// Routes
 app.use("/posts", postsRoute);
 app.use("/users", usersRoute);
 app.use("/answers", answerRoutes);
@@ -86,29 +72,22 @@ app.use("/auth", authRoutes);
 app.use("/reactions", reactionRoutes);
 app.use("/comments", commentRoutes);
 app.use("/questions", questionRoutes);
+app.use("/courses", courseRoutes);
 app.use("/follows", followroutes);
 app.use("/saves/collections", savedCollectionRoutes);
-
 app.use("/ratings", ratingRoutes);
-
 app.use("/items", savedItemRoutes);
 app.use("/notifications", notificationRoutes);
 app.use("/search", searchRoutes);
 app.use("/videos", videoPostRoutes);
 app.use("/discovers", discoverRoutes);
 app.use("/peoples", peopleRoutes);
-
 app.use("/messages", messageRoutes);
 app.use("/conversations", conversationRoutes);
 app.use("/activities", activityRoutes);
 
-// Test Route
-app.get("/", (req, res) => {
-  res.send("API is running...");
-});
+app.get("/", (req, res) => res.send("API is running..."));
 
-// example of an optional-auth route
-import { optionalAuth } from "./src/middleware/auth.js";
 app.get("/maybe", optionalAuth, (req, res) => {
   if (req.user)
     return res.json({ message: "Hello logged-in user", userId: req.user.id });
@@ -121,22 +100,14 @@ app.get("/test-env", (req, res) => {
     isProduction: process.env.NODE_ENV === "production",
   });
 });
-// 404 handler
+
 app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
 
-// Start server with socket.io
 (async () => {
   await connectDB();
-
-  // Create HTTP server
-  const server = http.createServer(app);
-
-  // Initialize socket.io
-  initSocket(server);
-
-  server.listen(port, () =>
+  app.listen(port, () =>
     console.log(`Server running http://localhost:${port}`),
   );
 })();
