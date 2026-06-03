@@ -4,10 +4,11 @@ import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 import cookieParser from "cookie-parser";
-
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { connectDB } from "./src/config/db.js";
 
-// Import routes
+// রুট ইম্পোর্ট
 import authRoutes from "./src/routes/authRoutes.js";
 import postsRoute from "./src/routes/postsroute.js";
 import questionRoutes from "./src/routes/post/questionRoute.js";
@@ -38,8 +39,17 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT || 5000;
 
+// ── ১. প্রক্সি ট্রাস্ট (Render/Vercel এর জন্য দরকার) ──
 app.set("trust proxy", 1);
 
+// ── ২. সিকিউরিটি হেডার ──
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+  }),
+);
+
+// ── ৩. CORS ──
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -60,15 +70,47 @@ app.use(
   }),
 );
 
+// ── ৪. বডি পার্সার ও কুকি — লিমিটারের আগে রাখতে হবে ──
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Routes
+// ── ৫. রেট লিমিটার ──
+
+// সাধারণ সব রুটের জন্য — ১৫ মিনিটে ২০০ রিকোয়েস্ট
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many requests, please try again later." },
+});
+
+// শুধু login ও register এর জন্য — dev এ ১০০, production এ ১০
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: process.env.NODE_ENV === "production" ? 10 : 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many login attempts, try again later." },
+});
+
+// সব রুটে generalLimiter গ্লোবালি লাগানো
+app.use(generalLimiter);
+
+// ── ৬. রুটস ──
+
+// শুধু login ও register এ authLimiter — logout এ লাগবে না
+// authLimiter আগে রেজিস্টার করতে হবে authRoutes এর আগে
+app.use("/auth/login", authLimiter);
+app.use("/auth/register", authLimiter);
+
+// auth এর বাকি সব রুট স্বাভাবিকভাবে
+app.use("/auth", authRoutes);
+
 app.use("/posts", postsRoute);
 app.use("/users", usersRoute);
 app.use("/answers", answerRoutes);
-app.use("/auth", authRoutes);
 app.use("/reactions", reactionRoutes);
 app.use("/comments", commentRoutes);
 app.use("/questions", questionRoutes);
@@ -86,14 +128,18 @@ app.use("/messages", messageRoutes);
 app.use("/conversations", conversationRoutes);
 app.use("/activities", activityRoutes);
 
+// ── ৭. টেস্ট ও মিসেলেনিয়াস রুট ──
+
 app.get("/", (req, res) => res.send("API is running..."));
 
+// লগইন থাকলে user info, না থাকলে guest দেখাবে
 app.get("/maybe", optionalAuth, (req, res) => {
   if (req.user)
     return res.json({ message: "Hello logged-in user", userId: req.user.id });
   return res.json({ message: "Hello guest" });
 });
 
+// এনভায়রনমেন্ট চেক
 app.get("/test-env", (req, res) => {
   res.json({
     NODE_ENV: process.env.NODE_ENV,
@@ -101,10 +147,15 @@ app.get("/test-env", (req, res) => {
   });
 });
 
+// ── ৮. ৪০৪ হ্যান্ডলার — সব রুটের একদম শেষে থাকবে ──
 app.use((req, res) => {
-  res.status(404).json({ message: "Route not found" });
+  res.status(404).json({
+    success: false,
+    message: "Route not found",
+  });
 });
 
+// ── ৯. DB কানেক্ট করে সার্ভার চালু ──
 (async () => {
   await connectDB();
   app.listen(port, () =>
