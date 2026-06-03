@@ -31,7 +31,7 @@ export default function CreatePostPage() {
 
   // NORMAL POST STATE
   const [title, setTitle] = useState("");
-  const [text, setText] = useState(""); // ← caption থেকে text
+  const [text, setText] = useState("");
   const [privacy, setPrivacy] = useState("public");
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [mediaPreviews, setMediaPreviews] = useState<string[]>([]);
@@ -49,18 +49,70 @@ export default function CreatePostPage() {
 
   const [error, setError] = useState("");
 
-  const handleMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // HEIC কে JPEG এ convert করার helper function
+  const convertHeicToJpeg = async (
+    file: File,
+  ): Promise<{ file: File; url: string }> => {
+    const heic2any = (await import("heic2any")).default;
+    const blob = (await heic2any({
+      blob: file,
+      toType: "image/jpeg",
+      quality: 0.85,
+    })) as Blob;
+
+    const convertedFile = new File(
+      [blob],
+      file.name.replace(/\.(heic|heif)$/i, ".jpg"),
+      { type: "image/jpeg" },
+    );
+
+    return {
+      file: convertedFile,
+      url: URL.createObjectURL(blob),
+    };
+  };
+
+  const handleMediaSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
+
     const hasVideo = files.some((f) => f.type.startsWith("video"));
-    const hasImage = files.some((f) => f.type.startsWith("image"));
+    const hasImage = files.some(
+      (f) => f.type.startsWith("image") || /\.(heic|heif)$/i.test(f.name),
+    );
+
     if (hasVideo && hasImage) {
       setError("ছবি এবং ভিডিও একসাথে দেওয়া যাবে না");
       return;
     }
+
     setError("");
-    setMediaFiles(files);
-    setMediaPreviews(files.map((f) => URL.createObjectURL(f)));
+
+    const convertedFiles: File[] = [];
+    const previews: string[] = [];
+
+    for (const file of files) {
+      const isHeic = /\.(heic|heif)$/i.test(file.name);
+
+      if (isHeic) {
+        try {
+          const { file: converted, url } = await convertHeicToJpeg(file);
+          convertedFiles.push(converted);
+          previews.push(url);
+        } catch (err) {
+          console.error("HEIC convert error:", err);
+          // convert fail হলে original রাখো
+          convertedFiles.push(file);
+          previews.push(URL.createObjectURL(file));
+        }
+      } else {
+        convertedFiles.push(file);
+        previews.push(URL.createObjectURL(file));
+      }
+    }
+
+    setMediaFiles(convertedFiles);
+    setMediaPreviews(previews);
   };
 
   const removeMedia = (index: number) => {
@@ -68,21 +120,44 @@ export default function CreatePostPage() {
     setMediaPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleCourseMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCourseMediaSelect = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
+
     const videos = files.filter((f) => f.type.startsWith("video"));
     if (videos.length > 1) {
       setError("একটির বেশি ভিডিও দেওয়া যাবে না");
       return;
     }
+
     setError("");
-    const newMedia: CourseMediaPreview[] = files.map((f) => ({
-      file: f,
-      url: URL.createObjectURL(f),
-      type: f.type.startsWith("video") ? "video" : "image",
-    }));
-    setCourseMedia((prev) => [...prev, ...newMedia]);
+
+    for (const file of files) {
+      const isHeic = /\.(heic|heif)$/i.test(file.name);
+      const type: "image" | "video" = file.type.startsWith("video")
+        ? "video"
+        : "image";
+
+      if (isHeic) {
+        try {
+          const { file: converted, url } = await convertHeicToJpeg(file);
+          setCourseMedia((prev) => [...prev, { file: converted, url, type }]);
+        } catch (err) {
+          console.error("HEIC convert error:", err);
+          setCourseMedia((prev) => [
+            ...prev,
+            { file, url: URL.createObjectURL(file), type },
+          ]);
+        }
+      } else {
+        setCourseMedia((prev) => [
+          ...prev,
+          { file, url: URL.createObjectURL(file), type },
+        ]);
+      }
+    }
   };
 
   const removeCourseMedia = (index: number) => {
@@ -100,7 +175,7 @@ export default function CreatePostPage() {
         }
         const formData = new FormData();
         if (title.trim()) formData.append("title", title.trim());
-        formData.append("text", text); // ← caption → text
+        formData.append("text", text);
         formData.append("privacy", privacy);
         mediaFiles.forEach((f) => formData.append("media", f));
         await createPost(formData).unwrap();
@@ -360,11 +435,10 @@ export default function CreatePostPage() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <Image
+                        <img
                           src={url}
                           alt="preview"
-                          fill
-                          className="object-cover"
+                          className="w-full h-full object-cover"
                         />
                       )}
                       <button
@@ -557,11 +631,10 @@ export default function CreatePostPage() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <Image
+                        <img
                           src={m.url}
                           alt="course media"
-                          fill
-                          className="object-cover"
+                          className="w-full h-full object-cover"
                         />
                       )}
                       <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-full">

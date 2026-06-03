@@ -95,19 +95,69 @@ export default function EditProfilePage() {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleImageChange = (
+  // HEIC কে JPEG এ convert করার helper
+  const convertHeicToJpeg = async (
+    file: File,
+  ): Promise<{ file: File; url: string }> => {
+    const heic2any = (await import("heic2any")).default;
+    const blob = (await heic2any({
+      blob: file,
+      toType: "image/jpeg",
+      quality: 0.85,
+    })) as Blob;
+
+    const convertedFile = new File(
+      [blob],
+      file.name.replace(/\.(heic|heif)$/i, ".jpg"),
+      { type: "image/jpeg" },
+    );
+
+    return {
+      file: convertedFile,
+      url: URL.createObjectURL(blob),
+    };
+  };
+
+  const handleImageChange = async (
     e: React.ChangeEvent<HTMLInputElement>,
     type: "profile" | "cover",
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    if (type === "profile") {
-      setProfileFile(file);
-      setProfilePreview(url);
+
+    const isHeic = /\.(heic|heif)$/i.test(file.name);
+
+    if (isHeic) {
+      try {
+        const { file: converted, url } = await convertHeicToJpeg(file);
+        if (type === "profile") {
+          setProfileFile(converted);
+          setProfilePreview(url);
+        } else {
+          setCoverFile(converted);
+          setCoverPreview(url);
+        }
+      } catch (err) {
+        console.error("HEIC convert error:", err);
+        // convert fail হলে original রাখো
+        const url = URL.createObjectURL(file);
+        if (type === "profile") {
+          setProfileFile(file);
+          setProfilePreview(url);
+        } else {
+          setCoverFile(file);
+          setCoverPreview(url);
+        }
+      }
     } else {
-      setCoverFile(file);
-      setCoverPreview(url);
+      const url = URL.createObjectURL(file);
+      if (type === "profile") {
+        setProfileFile(file);
+        setProfilePreview(url);
+      } else {
+        setCoverFile(file);
+        setCoverPreview(url);
+      }
     }
   };
 
@@ -187,7 +237,12 @@ export default function EditProfilePage() {
       {/* COVER */}
       <div className="relative w-full h-52 bg-accent/10 overflow-hidden">
         {coverPreview ? (
-          <Image src={coverPreview} alt="cover" fill className="object-cover" />
+          // preview এর জন্য সাধারণ img — blob URL Next Image এ কাজ করে না
+          <img
+            src={coverPreview}
+            alt="cover"
+            className="w-full h-full object-cover"
+          />
         ) : fullUser?.coverImage ? (
           <Image
             src={fullUser.coverImage}
@@ -233,11 +288,10 @@ export default function EditProfilePage() {
         <div className="relative -mt-14 mb-6 w-fit">
           <div className="w-28 h-28 rounded-full border-4 border-background overflow-hidden bg-accent/20">
             {profilePreview ? (
-              <Image
+              // preview এর জন্য সাধারণ img
+              <img
                 src={profilePreview}
                 alt="profile"
-                width={112}
-                height={112}
                 className="object-cover w-full h-full"
               />
             ) : fullUser?.profileImage ? (

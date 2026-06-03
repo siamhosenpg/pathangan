@@ -1,19 +1,11 @@
 import multer from "multer";
 
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = [
-    "image/jpeg",
-    "image/png",
-    "image/heic",
-    "image/jpg",
-    "image/webp",
-    "video/mp4",
-    "video/mov",
-    "audio/mpeg",
-    "audio/mp3",
-  ];
+  // frontend থেকে HEIC convert হয়ে আসে, তাই শুধু standard format
+  const allowedExtensions = /\.(jpg|jpeg|png|webp|mp4|mov|mp3)$/i;
+  const extname = allowedExtensions.test(file.originalname);
 
-  if (allowedTypes.includes(file.mimetype)) {
+  if (extname) {
     cb(null, true);
   } else {
     cb(new Error("Invalid file type"), false);
@@ -21,8 +13,8 @@ const fileFilter = (req, file, cb) => {
 };
 
 const upload = multer({
-  storage: multer.memoryStorage(), // 🔥 REQUIRED for sharp
-  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
+  storage: multer.memoryStorage(), // sharp এর জন্য memory storage দরকার
+  limits: { fileSize: 100 * 1024 * 1024 }, // ১০০MB max
   fileFilter,
 });
 
