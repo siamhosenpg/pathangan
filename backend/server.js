@@ -30,6 +30,7 @@ import messageRoutes from "./src/routes/message/messageRoutes.js";
 import conversationRoutes from "./src/routes/message/conversationRoutes.js";
 import activityRoutes from "./src/routes/acativity/acativityRoutes.js";
 import privateQuestionRoutes from "./src/routes/privateQuestionRoutes.js";
+import privateAnswerRoutes from "./src/routes/answer/privateAnswer.js";
 import { optionalAuth } from "./src/middleware/auth.js";
 
 dotenv.config();
@@ -129,6 +130,7 @@ app.use("/messages", messageRoutes);
 app.use("/conversations", conversationRoutes);
 app.use("/activities", activityRoutes);
 app.use("/private-questions", privateQuestionRoutes);
+app.use("/private-answers", privateAnswerRoutes);
 // ── ৭. টেস্ট ও মিসেলেনিয়াস রুট ──
 
 app.get("/", (req, res) => res.send("API is running..."));
