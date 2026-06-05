@@ -25,6 +25,7 @@ export const baseApi = createApi({
     "Follow",
     "Rating",
     "Notification",
+    "PrivateQuestion",
   ], // cache invalidation এর জন্য
   endpoints: () => ({}),
 });
