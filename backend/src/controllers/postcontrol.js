@@ -196,17 +196,26 @@ export const createPost = async (req, res) => {
         return res.status(400).json({ message: "Only one audio is allowed" });
       }
 
+      // ✅ এখন হবে:
+      let videoMeta = null;
+
       if (images.length > 0) {
         contentType = "image";
-        mediaUrls = await Promise.all(images.map((f) => uploadMedia(f)));
+        const results = await Promise.all(images.map((f) => uploadMedia(f)));
+        mediaUrls = results.map((r) => r.url);
       }
       if (videos.length === 1) {
         contentType = "video";
-        mediaUrls = [await uploadMedia(videos[0])];
+        const result = await uploadMedia(videos[0]);
+        mediaUrls = [result.url];
+        if (result.width && result.height) {
+          videoMeta = { width: result.width, height: result.height };
+        }
       }
       if (audios.length === 1) {
         contentType = "audio";
-        mediaUrls = [await uploadMedia(audios[0])];
+        const result = await uploadMedia(audios[0]);
+        mediaUrls = [result.url];
       }
     }
 
@@ -221,6 +230,7 @@ export const createPost = async (req, res) => {
         location: location || "",
         tags: tags || [],
         mentions: mentions || [],
+        videoMeta: videoMeta, // ✅ এটা যোগ
       },
       privacy: privacy || "public",
     });
@@ -299,17 +309,18 @@ export const createCoursePost = async (req, res) => {
         return res.status(400).json({ message: "Only one video is allowed" });
       }
 
+      // ✅ এখন হবে:
       const imageUploads = await Promise.all(
         images.map(async (file) => {
-          const url = await uploadMedia(file);
-          return { type: "image", url };
+          const result = await uploadMedia(file);
+          return { type: "image", url: result.url };
         }),
       );
 
       const videoUploads = await Promise.all(
         videos.map(async (file) => {
-          const url = await uploadMedia(file);
-          return { type: "video", url };
+          const result = await uploadMedia(file);
+          return { type: "video", url: result.url };
         }),
       );
 

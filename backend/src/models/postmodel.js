@@ -67,6 +67,10 @@ const postSchema = new mongoose.Schema(
       location: { type: String },
       tags: [{ type: String }],
       mentions: [{ type: String }],
+      videoMeta: {
+        width: { type: Number },
+        height: { type: Number },
+      },
     },
 
     // ===================== QUESTION POST =====================

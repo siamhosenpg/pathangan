@@ -19,6 +19,10 @@ export interface PostContent {
   location?: string;
   tags?: string[];
   mentions?: string[];
+  videoMeta?: {
+    width: number;
+    height: number;
+  };
 }
 
 // ===================== QUESTION POST =====================
