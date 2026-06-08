@@ -178,6 +178,8 @@ export const createPost = async (req, res) => {
     const files = req.files || [];
     let mediaUrls = [];
     let contentType = "text";
+    // ✅ এখন হবে:
+    let videoMeta = null;
 
     if (files.length > 0) {
       const images = files.filter((f) => f.mimetype.startsWith("image"));
@@ -195,9 +197,6 @@ export const createPost = async (req, res) => {
       if (audios.length > 1) {
         return res.status(400).json({ message: "Only one audio is allowed" });
       }
-
-      // ✅ এখন হবে:
-      let videoMeta = null;
 
       if (images.length > 0) {
         contentType = "image";
