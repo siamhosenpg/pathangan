@@ -6,7 +6,8 @@ import { useAppDispatch } from "@/redux/hooks";
 import type { LoginRequest } from "@/types/authtypes";
 import Link from "next/link";
 import { MdEmail, MdLock, MdVisibility, MdVisibilityOff } from "react-icons/md";
-import { FcGoogle } from "react-icons/fc";
+
+import GoogleAuthButton from "./buttons/GoogleAuthButton";
 
 export default function LoginForm() {
   const dispatch = useAppDispatch();
@@ -14,7 +15,6 @@ export default function LoginForm() {
   const { refetch } = useGetMeQuery();
   const [form, setForm] = useState<LoginRequest>({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
-  const [googleAlert, setGoogleAlert] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -39,37 +39,6 @@ export default function LoginForm() {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-background px-6 py-12">
-      {/* Google Alert Modal */}
-      {googleAlert && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="bg-background border border-border rounded-2xl p-6 max-w-sm w-full flex flex-col gap-4 shadow-2xl">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
-                <FcGoogle size={22} />
-              </div>
-              <div>
-                <p className="text-text font-semibold text-sm">
-                  Google লগইন শীঘ্রই আসছে
-                </p>
-                <p className="text-text-secondary text-xs mt-0.5">
-                  Coming Soon
-                </p>
-              </div>
-            </div>
-            <p className="text-text-secondary text-sm leading-relaxed">
-              আমরা শীঘ্রই Google-এর সাথে সংযোগ স্থাপন করব। এই ফিচারটি近く
-              প্রকাশিত হবে। এর মধ্যে ইমেইল দিয়ে লগইন করুন।
-            </p>
-            <button
-              onClick={() => setGoogleAlert(false)}
-              className="w-full py-2.5 rounded-xl bg-accent text-white text-sm font-medium hover:opacity-90 transition-all"
-            >
-              বুঝেছি
-            </button>
-          </div>
-        </div>
-      )}
-
       <div className="w-full max-w-md flex flex-col gap-6">
         {/* Logo */}
         <div className="flex flex-col gap-1 items-center mb-2">
@@ -89,14 +58,7 @@ export default function LoginForm() {
         )}
 
         {/* Google Button */}
-        <button
-          type="button"
-          onClick={() => setGoogleAlert(true)}
-          className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-border bg-white/5 hover:bg-white/10 transition-all text-text text-sm font-medium"
-        >
-          <FcGoogle size={20} />
-          Google দিয়ে লগইন করুন
-        </button>
+        <GoogleAuthButton />
 
         <div className="flex items-center gap-3">
           <div className="flex-1 h-px bg-white/10" />

@@ -62,7 +62,19 @@ const UserSchema = new Schema(
     username: { type: String, required: true, unique: true, trim: true },
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true },
-    password: { type: String, required: true, select: false },
+    googleId: { type: String, default: null },
+    provider: {
+      type: String,
+      enum: ["local", "google", "both"],
+      default: "local",
+    },
+    password: {
+      type: String,
+      required: function () {
+        return this.provider === "local" || this.provider === "both";
+      },
+      select: false,
+    },
 
     profileImage: { type: String },
     coverImage: { type: String },

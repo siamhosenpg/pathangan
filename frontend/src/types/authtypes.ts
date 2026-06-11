@@ -16,6 +16,7 @@ export interface AuthUser {
   profileImage?: string;
   email: string;
   greenmarkVerified?: boolean;
+  provider?: "local" | "google" | "both"; // ← নতুন
 }
 
 export interface AuthResponse {

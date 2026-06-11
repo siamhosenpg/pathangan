@@ -58,6 +58,29 @@ const authApi = baseApi.injectEndpoints({
         } catch {}
       },
     }),
+    googleMobileAuth: builder.mutation<
+      AuthResponse,
+      {
+        googleId: string;
+        email: string;
+        name: string;
+        photo?: string;
+      }
+    >({
+      query: (body) => ({
+        url: "/googleauth/google/mobile",
+        method: "POST",
+        body,
+      }),
+      async onQueryStarted(_, { queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          if (data.token) {
+            localStorage.setItem("token", data.token);
+          }
+        } catch {}
+      },
+    }),
   }),
 });
 
@@ -66,4 +89,5 @@ export const {
   useLoginMutation,
   useGetMeQuery,
   useLogoutMutation,
+  useGoogleMobileAuthMutation, // ← নতুন
 } = authApi;

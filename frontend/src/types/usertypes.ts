@@ -31,6 +31,8 @@ export interface User {
   username: string;
   name: string;
   email: string;
+  googleId?: string; // ← নতুন
+  provider?: "local" | "google" | "both"; // ← নতুন
   bio?: string;
   aboutText?: string;
   gender?: string;

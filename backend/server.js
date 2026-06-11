@@ -8,7 +8,10 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { connectDB } from "./src/config/db.js";
 
+import passport from "./src/config/passport.js";
+
 // রুট ইম্পোর্ট
+import googleAuthRoutes from "./src/routes/googleAuthRoutes.js";
 import authRoutes from "./src/routes/authRoutes.js";
 import postsRoute from "./src/routes/postsroute.js";
 import questionRoutes from "./src/routes/post/questionRoute.js";
@@ -97,6 +100,7 @@ const authLimiter = rateLimit({
   message: { message: "Too many login attempts, try again later." },
 });
 
+app.use(passport.initialize());
 // সব রুটে generalLimiter গ্লোবালি লাগানো
 app.use(generalLimiter);
 
@@ -108,8 +112,8 @@ app.use("/auth/login", authLimiter);
 app.use("/auth/register", authLimiter);
 
 // auth এর বাকি সব রুট স্বাভাবিকভাবে
+app.use("/googleauth", googleAuthRoutes);
 app.use("/auth", authRoutes);
-
 app.use("/posts", postsRoute);
 app.use("/users", usersRoute);
 app.use("/answers", answerRoutes);
