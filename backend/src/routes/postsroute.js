@@ -13,6 +13,7 @@ import {
   createSharePost,
   getPostCountByUserId,
 } from "../controllers/postcontrol.js";
+import { recordView } from "../controllers/post/viewController.js";
 import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
@@ -37,5 +38,8 @@ router.post("/share", protect, createSharePost);
 // ✅ Dynamic :id routes সবার শেষে
 router.put("/:id", protect, updatePost);
 router.delete("/:id", protect, deletePost);
+
+// routes এর মধ্যে — optionalProtect দিয়ে (guest ও view করতে পারবে)
+router.post("/view/:postId", optionalProtect, recordView);
 
 export default router;

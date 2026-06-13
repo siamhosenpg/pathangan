@@ -49,6 +49,7 @@ const postSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    viewsCount: { type: Number, default: 0 },
 
     // ===================== NORMAL POST =====================
     content: {
