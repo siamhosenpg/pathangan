@@ -9,6 +9,7 @@ import rateLimit from "express-rate-limit";
 import { connectDB } from "./src/config/db.js";
 
 import passport from "./src/config/passport.js";
+import Post from "./src/models/postmodel.js";
 
 // রুট ইম্পোর্ট
 import googleAuthRoutes from "./src/routes/googleAuthRoutes.js";
@@ -152,6 +153,14 @@ app.get("/test-env", (req, res) => {
     NODE_ENV: process.env.NODE_ENV,
     isProduction: process.env.NODE_ENV === "production",
   });
+});
+
+app.get("/fix-views", async (req, res) => {
+  const result = await Post.updateMany(
+    { viewsCount: { $exists: false } },
+    { $set: { viewsCount: 0 } },
+  );
+  res.json(result);
 });
 
 // ── ৮. ৪০৪ হ্যান্ডলার — সব রুটের একদম শেষে থাকবে ──
