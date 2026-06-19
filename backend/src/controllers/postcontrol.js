@@ -3,62 +3,6 @@ import Post from "../models/postmodel.js";
 import Reaction from "../models/reactionModel.js"; // ← এটা add করো
 import { uploadMedia } from "../utils/uploadToCloudinary.js";
 
-// ===================== GET ALL POSTS (cursor-based) =====================
-export const getPosts = async (req, res) => {
-  try {
-    const limit = parseInt(req.query.limit) || 10;
-    const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
-    const query = cursor ? { createdAt: { $lt: cursor } } : {};
-
-    const posts = await Post.find(query)
-      .populate("userid", "name username greenmarkVerified profileImage gender")
-      .populate({
-        path: "content.parentPost",
-        populate: {
-          path: "userid",
-          select: "name username greenmarkVerified profileImage gender",
-        },
-      })
-      .sort({ createdAt: -1 })
-      .limit(limit + 1)
-      .lean(); // ← .exec() সরিয়ে .lean() দাও
-
-    const hasMore = posts.length > limit;
-    if (hasMore) posts.pop();
-
-    // ── Reaction merge ────────────────────────────────────
-    const userId = req.user?.id || null;
-    let reactedSet = new Set();
-
-    if (userId && posts.length > 0) {
-      const postIds = posts.map((p) => p._id);
-
-      const reactions = await Reaction.find({
-        userId,
-        postId: { $in: postIds },
-      })
-        .select("postId")
-        .lean();
-
-      reactedSet = new Set(reactions.map((r) => r.postId.toString()));
-    }
-
-    const finalPosts = posts.map((post) => ({
-      ...post,
-      isReacted: reactedSet.has(post._id.toString()),
-    }));
-    // ──────────────────────────────────────────────────────
-
-    res.json({
-      posts: finalPosts,
-      nextCursor: hasMore ? finalPosts[finalPosts.length - 1].createdAt : null,
-    });
-  } catch (err) {
-    console.error("Get posts error:", err);
-    res.status(500).json({ message: err.message });
-  }
-};
-
 // ===================== GET SINGLE POST BY MONGODB _ID =====================
 // ===================== GET SINGLE POST BY MONGODB _ID =====================
 export const getPostById = async (req, res) => {
@@ -106,67 +50,7 @@ export const getPostById = async (req, res) => {
 
 // ===================== GET POSTS BY USERID =====================
 // ===================== GET POSTS BY USERID =====================
-export const getPostsByUserId = async (req, res) => {
-  try {
-    const userId = req.params.userid;
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "Invalid user id" });
-    }
-
-    const limit = parseInt(req.query.limit) || 10;
-    const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
-    const postType = req.query.postType || null;
-
-    const query = { userid: userId };
-    if (cursor) query.createdAt = { $lt: cursor };
-    if (postType) query.postType = postType;
-
-    const posts = await Post.find(query)
-      .populate(
-        "userid",
-        "name username greenmarkVerified bio profileImage gender",
-      )
-      .sort({ createdAt: -1 })
-      .limit(limit + 1)
-      .lean(); // ← .lean() দাও
-
-    const hasMore = posts.length > limit;
-    if (hasMore) posts.pop();
-
-    // ── Reaction merge ────────────────────────────────────
-    const currentUserId = req.user?.id || null;
-    let reactedSet = new Set();
-
-    if (currentUserId && posts.length > 0) {
-      const postIds = posts.map((p) => p._id);
-
-      const reactions = await Reaction.find({
-        userId: currentUserId,
-        postId: { $in: postIds },
-      })
-        .select("postId")
-        .lean();
-
-      reactedSet = new Set(reactions.map((r) => r.postId.toString()));
-    }
-
-    const finalPosts = posts.map((post) => ({
-      ...post,
-      isReacted: reactedSet.has(post._id.toString()),
-    }));
-    // ──────────────────────────────────────────────────────
-
-    return res.status(200).json({
-      posts: finalPosts,
-      count: finalPosts.length,
-      nextCursor: hasMore ? finalPosts[finalPosts.length - 1].createdAt : null,
-    });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
 // ===================== CREATE NORMAL POST =====================
 export const createPost = async (req, res) => {
   try {

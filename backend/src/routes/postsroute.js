@@ -7,12 +7,12 @@ import {
   createCoursePost,
   updatePost,
   deletePost,
-  getPostsByUserId,
   getPostById,
   createSharePost,
   getPostCountByUserId,
 } from "../controllers/postcontrol.js";
 import { getPosts } from "../controllers/post/feedController.js"; // ← নতুন alada file theke import
+import { getPostsByUserId } from "../controllers/post/userPostsController.js";
 import { recordView } from "../controllers/post/viewController.js";
 import { protect } from "../middleware/auth.js";
 
