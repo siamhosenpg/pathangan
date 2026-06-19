@@ -1,8 +1,9 @@
 import mongoose from "mongoose";
 import Post from "../../models/postmodel.js";
 import Reaction from "../../models/reactionModel.js";
+import Follow from "../../models/followModel.js";
 
-// ===================== GET ALL QUESTION POSTS (cursor-based) =====================
+// ===================== GET ALL QUESTION POSTS (cursor-based, N+1 fixed) =====================
 export const getAllQuestions = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
@@ -15,13 +16,14 @@ export const getAllQuestions = async (req, res) => {
       .populate("userid", "name username badges profileImage gender")
       .sort({ createdAt: -1 })
       .limit(limit + 1)
-      .lean(); // .exec() → .lean()
+      .lean();
 
     const hasMore = questions.length > limit;
     if (hasMore) questions.pop();
 
-    // ── Reaction merge ────────────────────────────────────
     const userId = req.user?.id || null;
+
+    // ── Reaction merge ────────────────────────────────────
     let reactedSet = new Set();
 
     if (userId && questions.length > 0) {
@@ -37,10 +39,47 @@ export const getAllQuestions = async (req, res) => {
       reactedSet = new Set(reactions.map((r) => r.postId.toString()));
     }
 
-    const finalQuestions = questions.map((q) => ({
-      ...q,
-      isReacted: reactedSet.has(q._id.toString()),
-    }));
+    // ── Follow status merge (N+1 fix) ──────────────────────
+    let followingSet = new Set();
+
+    if (userId && questions.length > 0) {
+      const authorIds = new Set();
+
+      questions.forEach((q) => {
+        if (q.userid?._id) authorIds.add(q.userid._id.toString());
+      });
+
+      // নিজেকে বাদ দেওয়া
+      authorIds.delete(userId.toString());
+
+      if (authorIds.size > 0) {
+        const followings = await Follow.find({
+          followerId: userId,
+          followingId: { $in: Array.from(authorIds) },
+        })
+          .select("followingId")
+          .lean();
+
+        followingSet = new Set(followings.map((f) => f.followingId.toString()));
+      }
+    }
+
+    // ── Final merge: isReacted + userid.isFollowing ────────
+    const finalQuestions = questions.map((q) => {
+      const merged = {
+        ...q,
+        isReacted: reactedSet.has(q._id.toString()),
+      };
+
+      if (merged.userid) {
+        merged.userid = {
+          ...merged.userid,
+          isFollowing: followingSet.has(merged.userid._id.toString()),
+        };
+      }
+
+      return merged;
+    });
     // ─────────────────────────────────────────────────────
 
     res.json({
@@ -73,13 +112,14 @@ export const getQuestionsByUserId = async (req, res) => {
       .populate("userid", "name username badges profileImage gender")
       .sort({ createdAt: -1 })
       .limit(limit + 1)
-      .lean(); // .exec() → .lean()
+      .lean();
 
     const hasMore = questions.length > limit;
     if (hasMore) questions.pop();
 
-    // ── Reaction merge ────────────────────────────────────
     const currentUserId = req.user?.id || null;
+
+    // ── Reaction merge ────────────────────────────────────
     let reactedSet = new Set();
 
     if (currentUserId && questions.length > 0) {
@@ -95,10 +135,48 @@ export const getQuestionsByUserId = async (req, res) => {
       reactedSet = new Set(reactions.map((r) => r.postId.toString()));
     }
 
-    const finalQuestions = questions.map((q) => ({
-      ...q,
-      isReacted: reactedSet.has(q._id.toString()),
-    }));
+    // ── Follow status merge (N+1 fix) ──────────────────────
+    // এই endpoint এ সব post-ই একই userid এর (profile page এ ব্যবহার হয়),
+    // তাই একাধিক author না থাকলেও same pattern রাখা হলো — future-proof
+    let followingSet = new Set();
+
+    if (currentUserId && questions.length > 0) {
+      const authorIds = new Set();
+
+      questions.forEach((q) => {
+        if (q.userid?._id) authorIds.add(q.userid._id.toString());
+      });
+
+      authorIds.delete(currentUserId.toString());
+
+      if (authorIds.size > 0) {
+        const followings = await Follow.find({
+          followerId: currentUserId,
+          followingId: { $in: Array.from(authorIds) },
+        })
+          .select("followingId")
+          .lean();
+
+        followingSet = new Set(followings.map((f) => f.followingId.toString()));
+      }
+    }
+
+    // ── Final merge ─────────────────────────────────────────
+    const finalQuestions = questions.map((q) => {
+      const merged = {
+        ...q,
+        isReacted: reactedSet.has(q._id.toString()),
+      };
+
+      if (merged.userid) {
+        merged.userid = {
+          ...merged.userid,
+          isFollowing: followingSet.has(merged.userid._id.toString()),
+        };
+      }
+
+      return merged;
+    });
     // ─────────────────────────────────────────────────────
 
     return res.status(200).json({
@@ -124,13 +202,14 @@ export const getQuestionById = async (req, res) => {
 
     const question = await Post.findOne({ _id: id, postType: "question" })
       .populate("userid", "name username badges bio profileImage gender")
-      .lean(); // .exec() → .lean()
+      .lean();
 
     if (!question)
       return res.status(404).json({ message: "Question not found" });
 
-    // ── Reaction check (single question) ─────────────────
     const userId = req.user?.id || null;
+
+    // ── Reaction check (single question) ─────────────────
     let isReacted = false;
 
     if (userId) {
@@ -141,9 +220,29 @@ export const getQuestionById = async (req, res) => {
 
       isReacted = !!reaction;
     }
+
+    // ── Follow status (single user, single query — N+1 হওয়ার সুযোগ নেই এখানে) ──
+    let isFollowing = false;
+
+    if (userId && question.userid?._id) {
+      const authorId = question.userid._id.toString();
+
+      if (authorId !== userId.toString()) {
+        const followRecord = await Follow.findOne({
+          followerId: userId,
+          followingId: authorId,
+        }).lean();
+
+        isFollowing = !!followRecord;
+      }
+    }
     // ─────────────────────────────────────────────────────
 
-    res.json({ ...question, isReacted });
+    res.json({
+      ...question,
+      isReacted,
+      userid: { ...question.userid, isFollowing },
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

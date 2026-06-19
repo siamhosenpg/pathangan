@@ -1,8 +1,7 @@
 import express from "express";
 import upload from "../middleware/upload.js";
-import { optionalProtect } from "../middleware/optionalProtect.js"; // ← import করো
+import { optionalProtect } from "../middleware/optionalProtect.js";
 import {
-  getPosts,
   createPost,
   createQuestionPost,
   createCoursePost,
@@ -13,6 +12,7 @@ import {
   createSharePost,
   getPostCountByUserId,
 } from "../controllers/postcontrol.js";
+import { getPosts } from "../controllers/post/feedController.js"; // ← নতুন alada file theke import
 import { recordView } from "../controllers/post/viewController.js";
 import { protect } from "../middleware/auth.js";
 
@@ -20,9 +20,9 @@ const router = express.Router();
 
 // ✅ Static routes আগে
 router.get("/", optionalProtect, getPosts);
-router.get("/user/:userid/count", optionalProtect, getPostCountByUserId); // ← count আগে
-router.get("/user/:userid", optionalProtect, getPostsByUserId); // ← তারপর userid
-router.get("/post/:id", optionalProtect, getPostById); // ← static আগে
+router.get("/user/:userid/count", optionalProtect, getPostCountByUserId);
+router.get("/user/:userid", optionalProtect, getPostsByUserId);
+router.get("/post/:id", optionalProtect, getPostById);
 
 // ✅ Create routes
 router.post("/", protect, upload.array("media", 10), createPost);
@@ -39,7 +39,6 @@ router.post("/share", protect, createSharePost);
 router.put("/:id", protect, updatePost);
 router.delete("/:id", protect, deletePost);
 
-// routes এর মধ্যে — optionalProtect দিয়ে (guest ও view করতে পারবে)
 router.post("/view/:postId", optionalProtect, recordView);
 
 export default router;
