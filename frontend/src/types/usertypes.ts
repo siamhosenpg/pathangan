@@ -66,3 +66,7 @@ export interface SuggestedUsersResponse {
   count: number;
   users: User[];
 }
+
+export interface SuggestedUser extends User {
+  isFollowing: boolean;
+}
