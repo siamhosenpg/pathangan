@@ -19,8 +19,8 @@ const userApi = baseApi.injectEndpoints({
     }),
 
     // suggested users
-    getSuggestedUsers: builder.query<SuggestedUsersResponse, void>({
-      query: () => ({ url: "/users/suggested", method: "GET" }),
+    getPeopleSuggestions: builder.query<SuggestedUsersResponse, void>({
+      query: () => ({ url: "/peoples/suggestions", method: "GET" }),
     }),
 
     // user update (image সহ)
@@ -48,7 +48,7 @@ const userApi = baseApi.injectEndpoints({
 export const {
   useGetUsersQuery,
   useGetUserByUsernameQuery,
-  useGetSuggestedUsersQuery,
+  useGetPeopleSuggestionsQuery,
   useUpdateUserMutation,
   useDeleteUserMutation,
 } = userApi;

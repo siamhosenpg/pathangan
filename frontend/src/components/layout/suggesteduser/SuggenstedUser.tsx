@@ -1,9 +1,9 @@
 "use client";
 import Profilecard from "@/components/ui/profilecard/Profilecard";
-import { useGetSuggestedUsersQuery } from "@/redux/api/userApi";
+import { useGetPeopleSuggestionsQuery } from "@/redux/api/userApi";
 
 const SuggenstedUser = () => {
-  const { data, isLoading, isError } = useGetSuggestedUsersQuery();
+  const { data, isLoading, isError } = useGetPeopleSuggestionsQuery();
   return (
     <div className="bg-background rounded-xl p-4 flex flex-col gap-1.5">
       {isLoading &&
