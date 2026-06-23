@@ -2,85 +2,7 @@ import mongoose from "mongoose";
 import Post from "../../models/postmodel.js";
 import Reaction from "../../models/reactionModel.js";
 import Follow from "../../models/followModel.js";
-import Answer from "../../models/answer/answerModel.js";
-
-// প্রতি question card এ preview হিসেবে কতগুলো answer দেখানো হবে
-const PREVIEW_ANSWERS_LIMIT = 2;
-
-// ===================== Helper: batch answer preview fetch (N+1 fix) =====================
-const attachAnswerPreviews = async (questions) => {
-  if (questions.length === 0) return questions;
-
-  const questionIds = questions.map((q) => q._id);
-
-  // একটাই aggregation query দিয়ে প্রতিটা questionId এর জন্য সর্বোচ্চ
-  // PREVIEW_ANSWERS_LIMIT সংখ্যক answer (best answer আগে, তারপর সাম্প্রতিক) আনা হচ্ছে
-  const answerGroups = await Answer.aggregate([
-    {
-      $match: {
-        questionId: { $in: questionIds },
-        isDeleted: false,
-      },
-    },
-    { $sort: { isBestAnswer: -1, createdAt: -1 } },
-    {
-      $group: {
-        _id: "$questionId",
-        answers: { $push: "$$ROOT" },
-        totalCount: { $sum: 1 },
-      },
-    },
-    {
-      $project: {
-        answers: { $slice: ["$answers", PREVIEW_ANSWERS_LIMIT] },
-        totalCount: 1,
-      },
-    },
-  ]);
-
-  // questionId অনুযায়ী দ্রুত lookup এর জন্য Map বানানো
-  const answersByQuestionId = new Map(
-    answerGroups.map((group) => [group._id.toString(), group]),
-  );
-
-  // answer এর ভেতরের userId populate করার জন্য সব userId একসাথে সংগ্রহ
-  const allAnswerUserIds = new Set();
-  answerGroups.forEach((group) => {
-    group.answers.forEach((a) => {
-      if (a.userId) allAnswerUserIds.add(a.userId.toString());
-    });
-  });
-
-  let answerUsersMap = new Map();
-  if (allAnswerUserIds.size > 0) {
-    const User = mongoose.model("User"); // আপনার User model এর registered নাম
-    const answerUsers = await User.find({
-      _id: { $in: Array.from(allAnswerUserIds) },
-    })
-      .select("name username profileImage badges")
-      .lean();
-
-    answerUsersMap = new Map(answerUsers.map((u) => [u._id.toString(), u]));
-  }
-
-  // প্রতিটা question এ তার preview answers বসিয়ে দেওয়া
-  return questions.map((q) => {
-    const group = answersByQuestionId.get(q._id.toString());
-
-    const previewAnswers = group
-      ? group.answers.map((a) => ({
-          ...a,
-          userId: answerUsersMap.get(a.userId?.toString()) || a.userId,
-        }))
-      : [];
-
-    return {
-      ...q,
-      previewAnswers,
-      answersCount: group ? group.totalCount : 0,
-    };
-  });
-};
+import { attachAnswerPreviews } from "../../helpers/attachAnswerPreviews.js";
 
 // ===================== GET ALL QUESTION POSTS (cursor-based, N+1 fixed) =====================
 export const getAllQuestions = async (req, res) => {
@@ -128,7 +50,6 @@ export const getAllQuestions = async (req, res) => {
         if (q.userid?._id) authorIds.add(q.userid._id.toString());
       });
 
-      // নিজেকে বাদ দেওয়া
       authorIds.delete(userId.toString());
 
       if (authorIds.size > 0) {
@@ -162,7 +83,7 @@ export const getAllQuestions = async (req, res) => {
 
     // ── Answer preview merge (N+1 fix) ─────────────────────
     finalQuestions = await attachAnswerPreviews(finalQuestions);
-    // ─────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────
 
     res.json({
       questions: finalQuestions,
@@ -241,7 +162,7 @@ export const getQuestionsByUserId = async (req, res) => {
       }
     }
 
-    // ── Final merge ─────────────────────────────────────────
+    // ── Final merge ──────────────────────────────────────
     let finalQuestions = questions.map((q) => {
       const merged = {
         ...q,
@@ -260,7 +181,7 @@ export const getQuestionsByUserId = async (req, res) => {
 
     // ── Answer preview merge (N+1 fix) ─────────────────────
     finalQuestions = await attachAnswerPreviews(finalQuestions);
-    // ─────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────
 
     return res.status(200).json({
       questions: finalQuestions,
@@ -292,7 +213,7 @@ export const getQuestionById = async (req, res) => {
 
     const userId = req.user?.id || null;
 
-    // ── Reaction check (single question) ─────────────────
+    // ── Reaction check ────────────────────────────────────
     let isReacted = false;
 
     if (userId) {
@@ -304,7 +225,7 @@ export const getQuestionById = async (req, res) => {
       isReacted = !!reaction;
     }
 
-    // ── Follow status (single user, single query — N+1 হওয়ার সুযোগ নেই এখানে) ──
+    // ── Follow status ──────────────────────────────────────
     let isFollowing = false;
 
     if (userId && question.userid?._id) {
@@ -319,7 +240,6 @@ export const getQuestionById = async (req, res) => {
         isFollowing = !!followRecord;
       }
     }
-    // ─────────────────────────────────────────────────────
 
     res.json({
       ...question,

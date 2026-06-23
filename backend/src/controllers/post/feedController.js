@@ -1,6 +1,7 @@
 import Post from "../../models/postmodel.js";
 import Reaction from "../../models/reactionModel.js";
 import Follow from "../../models/followModel.js";
+import { attachAnswerPreviews } from "../../helpers/attachAnswerPreviews.js";
 
 // ===================== GET ALL POSTS (cursor-based, N+1 fixed) =====================
 export const getPosts = async (req, res) => {
@@ -32,32 +33,26 @@ export const getPosts = async (req, res) => {
 
     if (userId && posts.length > 0) {
       const postIds = posts.map((p) => p._id);
-
       const reactions = await Reaction.find({
         userId,
         postId: { $in: postIds },
       })
         .select("postId")
         .lean();
-
       reactedSet = new Set(reactions.map((r) => r.postId.toString()));
     }
 
     // ── Follow status merge (N+1 fix) ──────────────────────
-    // প্রতিটা পোস্টের author + parentPost author মিলিয়ে unique author id list বানানো
     let followingSet = new Set();
 
     if (userId && posts.length > 0) {
       const authorIds = new Set();
-
       posts.forEach((post) => {
         if (post.userid?._id) authorIds.add(post.userid._id.toString());
         if (post.content?.parentPost?.userid?._id) {
           authorIds.add(post.content.parentPost.userid._id.toString());
         }
       });
-
-      // নিজেকে বাদ দেওয়া (নিজের পোস্টে follow বাটন দেখানোর দরকার নেই)
       authorIds.delete(userId.toString());
 
       if (authorIds.size > 0) {
@@ -67,13 +62,12 @@ export const getPosts = async (req, res) => {
         })
           .select("followingId")
           .lean();
-
         followingSet = new Set(followings.map((f) => f.followingId.toString()));
       }
     }
 
-    // ── Final merge: প্রতিটা post এ isReacted + author এর ভেতরে isFollowing ──
-    const finalPosts = posts.map((post) => {
+    // ── Final merge: isReacted + isFollowing ──────────────
+    let finalPosts = posts.map((post) => {
       const merged = {
         ...post,
         isReacted: reactedSet.has(post._id.toString()),
@@ -103,7 +97,10 @@ export const getPosts = async (req, res) => {
 
       return merged;
     });
-    // ──────────────────────────────────────────────────────
+
+    // ── Answer preview merge — শুধু question type post এর জন্য (N+1 fix) ──
+    finalPosts = await attachAnswerPreviews(finalPosts);
+    // ─────────────────────────────────────────────────────
 
     res.json({
       posts: finalPosts,

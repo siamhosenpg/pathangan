@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Post from "../../models/postmodel.js";
 import Reaction from "../../models/reactionModel.js";
 import Follow from "../../models/followModel.js";
+import { attachAnswerPreviews } from "../../helpers/attachAnswerPreviews.js";
 
 // ===================== GET POSTS BY USERID (N+1 fixed) =====================
 export const getPostsByUserId = async (req, res) => {
@@ -39,30 +40,23 @@ export const getPostsByUserId = async (req, res) => {
 
     if (currentUserId && posts.length > 0) {
       const postIds = posts.map((p) => p._id);
-
       const reactions = await Reaction.find({
         userId: currentUserId,
         postId: { $in: postIds },
       })
         .select("postId")
         .lean();
-
       reactedSet = new Set(reactions.map((r) => r.postId.toString()));
     }
 
     // ── Follow status merge (N+1 fix) ──────────────────────
-    // এই endpoint এ সব post-ই একই userid এর (profile page এ ব্যবহার হয়),
-    // তাই author সাধারণত ১ জনই হবে — কিন্তু generic pattern রাখা হলো
     let followingSet = new Set();
 
     if (currentUserId && posts.length > 0) {
       const authorIds = new Set();
-
       posts.forEach((post) => {
         if (post.userid?._id) authorIds.add(post.userid._id.toString());
       });
-
-      // নিজেকে বাদ দেওয়া (নিজের প্রোফাইলে follow বাটন দেখানোর দরকার নেই)
       authorIds.delete(currentUserId.toString());
 
       if (authorIds.size > 0) {
@@ -72,27 +66,27 @@ export const getPostsByUserId = async (req, res) => {
         })
           .select("followingId")
           .lean();
-
         followingSet = new Set(followings.map((f) => f.followingId.toString()));
       }
     }
 
     // ── Final merge: isReacted + userid.isFollowing ────────
-    const finalPosts = posts.map((post) => {
+    let finalPosts = posts.map((post) => {
       const merged = {
         ...post,
         isReacted: reactedSet.has(post._id.toString()),
       };
-
       if (merged.userid) {
         merged.userid = {
           ...merged.userid,
           isFollowing: followingSet.has(merged.userid._id.toString()),
         };
       }
-
       return merged;
     });
+
+    // ── Answer preview merge — শুধু question type post এর জন্য (N+1 fix) ──
+    finalPosts = await attachAnswerPreviews(finalPosts);
     // ─────────────────────────────────────────────────────
 
     return res.status(200).json({
