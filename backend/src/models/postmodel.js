@@ -90,7 +90,49 @@ const postSchema = new mongoose.Schema(
     likesCount: { type: Number, default: 0 },
     commentsCount: { type: Number, default: 0 },
     sharesCount: { type: Number, default: 0 },
+
+    // ===================== MODERATION =====================
+    moderationStatus: {
+      type: String,
+      enum: [
+        "active",
+        "under_review",
+        "hidden",
+        "auto_hidden",
+        "removed",
+        "deleted",
+      ],
+      default: "active",
+      index: true,
+    },
+    moderationHistory: [
+      {
+        status: { type: String },
+        changedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          default: null,
+        },
+        changedAt: { type: Date, default: Date.now },
+        reason: { type: String, trim: true, default: null },
+        note: { type: String, trim: true, default: null },
+      },
+    ],
+    reportCount: { type: Number, default: 0 },
+    deletedAt: { type: Date, default: null },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    removedAt: { type: Date, default: null },
+    removedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
+
   { timestamps: true },
 );
 

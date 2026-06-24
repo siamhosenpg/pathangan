@@ -11,9 +11,16 @@ import { connectDB } from "./src/config/db.js";
 import passport from "./src/config/passport.js";
 import Post from "./src/models/postmodel.js";
 
+// dfadfadf
+import { runMigration } from "./src/scripts/runMigration.js";
+import { protect } from "./src/middleware/auth.js";
+import { adminOnly } from "./src/middleware/adminOnly.js";
+
 // রুট ইম্পোর্ট
+
 import googleAuthRoutes from "./src/routes/googleAuthRoutes.js";
 import authRoutes from "./src/routes/authRoutes.js";
+import moderationRoutes from "./src/routes/otherroutes/moderationRoutes.js";
 import postsRoute from "./src/routes/postsroute.js";
 import questionRoutes from "./src/routes/post/questionRoute.js";
 import courseRoutes from "./src/routes/post/courseRoutes.js";
@@ -115,6 +122,7 @@ app.use("/auth/register", authLimiter);
 // auth এর বাকি সব রুট স্বাভাবিকভাবে
 app.use("/googleauth", googleAuthRoutes);
 app.use("/auth", authRoutes);
+app.use("/moderation", moderationRoutes);
 app.use("/posts", postsRoute);
 app.use("/users", usersRoute);
 app.use("/answers", answerRoutes);
@@ -162,6 +170,9 @@ app.get("/fix-views", async (req, res) => {
   );
   res.json(result);
 });
+
+// অন্য routes এর সাথে:
+app.get("/run-migration", protect, adminOnly, runMigration);
 
 // ── ৮. ৪০৪ হ্যান্ডলার — সব রুটের একদম শেষে থাকবে ──
 app.use((req, res) => {

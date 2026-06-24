@@ -8,8 +8,10 @@ export const getPosts = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
     const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
-    const query = cursor ? { createdAt: { $lt: cursor } } : {};
-
+    const query = {
+      moderationStatus: { $nin: ["deleted", "removed", "auto_hidden"] },
+      ...(cursor && { createdAt: { $lt: cursor } }),
+    };
     const posts = await Post.find(query)
       .populate("userid", "name username greenmarkVerified profileImage gender")
       .populate({

@@ -165,6 +165,57 @@ const UserSchema = new Schema(
       totalFollowing: { type: Number, default: 0 },
     },
 
+    // ===================== MODERATION =====================
+    accountStatus: {
+      type: String,
+      enum: [
+        "active",
+        "warned",
+        "suspended",
+        "banned",
+        "deactivated",
+        "deleted",
+        "under_review",
+      ],
+      default: "active",
+      index: true,
+    },
+    moderationHistory: [
+      {
+        status: { type: String },
+        changedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          default: null,
+        },
+        changedAt: { type: Date, default: Date.now },
+        reason: { type: String, trim: true, default: null },
+        note: { type: String, trim: true, default: null },
+      },
+    ],
+    suspension: {
+      reason: { type: String, default: null },
+      suspendedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null,
+      },
+      suspendedAt: { type: Date, default: null },
+      expiresAt: { type: Date, default: null },
+    },
+    warning: {
+      count: { type: Number, default: 0 },
+      lastWarnedAt: { type: Date, default: null },
+      lastReason: { type: String, default: null },
+    },
+    reportCount: { type: Number, default: 0 },
+    deletedAt: { type: Date, default: null },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
     joinedAt: { type: Date, default: Date.now },
     lastActive: { type: Date, default: Date.now },
   },

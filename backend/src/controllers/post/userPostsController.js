@@ -17,7 +17,10 @@ export const getPostsByUserId = async (req, res) => {
     const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
     const postType = req.query.postType || null;
 
-    const query = { userid: userId };
+    const query = {
+      userid: userId,
+      moderationStatus: { $nin: ["deleted", "removed", "auto_hidden"] },
+    };
     if (cursor) query.createdAt = { $lt: cursor };
     if (postType) query.postType = postType;
 

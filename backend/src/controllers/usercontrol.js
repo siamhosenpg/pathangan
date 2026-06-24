@@ -2,25 +2,26 @@ import User from "../models/usermodel.js";
 import bcrypt from "bcryptjs";
 import Follow from "../models/followModel.js";
 
-/**
- * ✅ Get all users
- */
+// ===================== GET ALL USERS =====================
 export const getUsers = async (req, res) => {
   try {
-    const users = await User.find().select("-password");
+    const users = await User.find({
+      accountStatus: { $nin: ["deleted", "banned", "deactivated"] },
+    }).select("-password");
     res.status(200).json(users);
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
-/**
- * ✅ Get single user by userid
- */
+// ===================== GET SINGLE USER BY USERID =====================
 export const getUserById = async (req, res) => {
   try {
     const userid = Number(req.params.userid);
-    const user = await User.findOne({ userid }).select("-password");
+    const user = await User.findOne({
+      userid,
+      accountStatus: { $nin: ["deleted", "banned", "deactivated"] },
+    }).select("-password");
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -30,22 +31,49 @@ export const getUserById = async (req, res) => {
   }
 };
 
-// 🟢 Update user (with profile & cover image upload)
+// ===================== GET USER BY USERNAME =====================
+export const getUserByUsername = async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    if (!username) {
+      return res.status(400).json({ message: "Username is required" });
+    }
+
+    const user = await User.findOne({
+      username,
+      accountStatus: { $nin: ["deleted", "banned", "deactivated"] },
+    }).select("-password");
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.status(200).json(user);
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// ===================== UPDATE USER =====================
 export const updateUser = async (req, res) => {
   try {
     const userid = Number(req.params.userid);
     const loggedInUserId = req.user.id;
 
-    const user = await User.findOne({ userid });
+    const user = await User.findOne({
+      userid,
+      accountStatus: { $nin: ["deleted"] },
+    });
+
     if (!user) return res.status(404).json({ message: "User not found" });
-    if (user._id.toString() !== loggedInUserId)
+
+    if (user._id.toString() !== loggedInUserId) {
       return res
         .status(403)
         .json({ message: "You can only edit your own profile" });
+    }
 
     const updateData = {};
 
-    // সাধারণ fields
     const allowedFields = [
       "name",
       "username",
@@ -58,7 +86,6 @@ export const updateUser = async (req, res) => {
       if (req.body[field] !== undefined) updateData[field] = req.body[field];
     });
 
-    // work — JSON string হিসেবে আসবে, parse করতে হবে
     if (req.body.work) {
       try {
         updateData.work = JSON.parse(req.body.work);
@@ -67,7 +94,6 @@ export const updateUser = async (req, res) => {
       }
     }
 
-    // educations — JSON string হিসেবে আসবে, parse করতে হবে
     if (req.body.educations) {
       try {
         updateData.educations = JSON.parse(req.body.educations);
@@ -76,13 +102,11 @@ export const updateUser = async (req, res) => {
       }
     }
 
-    // password update
     if (req.body.password) {
       const salt = await bcrypt.genSalt(10);
       updateData.password = await bcrypt.hash(req.body.password, salt);
     }
 
-    // profile & cover images
     if (req.files) {
       if (req.files.profileImage) {
         updateData.profileImage = req.files.profileImage[0].path;
@@ -112,73 +136,70 @@ export const updateUser = async (req, res) => {
   }
 };
 
-/**
- * ✅ Delete user
- */
+// ===================== SOFT DELETE USER (owner নিজে) =====================
 export const deleteUser = async (req, res) => {
   try {
     const userid = Number(req.params.userid);
+    const loggedInUserId = req.user?.id;
 
-    const deletedUser = await User.findOneAndDelete({ userid });
+    const user = await User.findOne({
+      userid,
+      accountStatus: { $nin: ["deleted"] },
+    });
 
-    if (!deletedUser)
-      return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    res.status(200).json({ message: "User deleted successfully" });
+    // শুধু নিজের account delete করতে পারবে
+    if (user._id.toString() !== loggedInUserId) {
+      return res
+        .status(403)
+        .json({ message: "You can only delete your own account" });
+    }
+
+    await User.findByIdAndUpdate(user._id, {
+      accountStatus: "deleted",
+      deletedAt: new Date(),
+      deletedBy: user._id,
+      $push: {
+        moderationHistory: {
+          status: "deleted",
+          changedBy: user._id,
+          changedAt: new Date(),
+          reason: "user_request",
+        },
+      },
+    });
+
+    res.status(200).json({ message: "Account deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: "Cannot delete user", error: err.message });
   }
 };
 
-/**
- * ✅ Get user by username
- */
-export const getUserByUsername = async (req, res) => {
-  try {
-    const { username } = req.params;
-
-    if (!username)
-      return res.status(400).json({ message: "Username is required" });
-
-    const user = await User.findOne({ username }).select("-password");
-
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    res.status(200).json(user);
-  } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
-  }
-};
-
-/**
- * 🟦 Suggestion Accounts
- * → Those users whom logged-in user does NOT follow
- * → Exclude logged-in user himself
- */
+// ===================== SUGGESTED USERS (legacy — usersroute এ ব্যবহার হয়) =====================
 export const getSuggestedUsers = async (req, res) => {
   try {
-    const loggedUserId = req.user.id; // MongoDB _id (string)
+    const loggedUserId = req.user.id;
 
     if (!loggedUserId) {
       return res.status(401).json({ message: "Login required" });
     }
 
-    // 1️⃣ Find all users I already follow
-    const followingList = await Follow.find({ follower: loggedUserId }).select(
-      "following",
-    );
+    const followingList = await Follow.find({
+      follower: loggedUserId,
+    }).select("following");
 
     const followingIds = followingList.map((item) => item.following.toString());
-
-    // 2️⃣ Add my own id (so I am not suggested)
     followingIds.push(loggedUserId);
 
-    // 3️⃣ Fetch all users except my following + myself
     const suggestions = await User.find({
       _id: { $nin: followingIds },
+      accountStatus: {
+        $nin: ["deleted", "banned", "deactivated", "suspended"],
+      },
     })
       .select("-password")
-      .limit(20); // want only 20 profiles
+      .limit(20);
 
     res.status(200).json({
       count: suggestions.length,

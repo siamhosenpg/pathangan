@@ -1,15 +1,14 @@
-import jwt from "jsonwebtoken"; // ← এটা add করো
+import jwt from "jsonwebtoken";
 
-// middleware/auth.js তে add করো
 export const optionalProtect = async (req, res, next) => {
   try {
     const token = req.cookies?.token;
-    if (!token) return next(); // token নেই → req.user = undefined → চলতে থাকো
+    if (!token) return next();
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = { id: decoded.id };
+    req.user = { id: decoded.id, role: decoded.role };
     next();
   } catch {
-    next(); // invalid token হলেও block করবে না
+    next();
   }
 };

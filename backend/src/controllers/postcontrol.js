@@ -1,9 +1,8 @@
 import mongoose from "mongoose";
 import Post from "../models/postmodel.js";
-import Reaction from "../models/reactionModel.js"; // ← এটা add করো
+import Reaction from "../models/reactionModel.js";
 import { uploadMedia } from "../utils/uploadToCloudinary.js";
 
-// ===================== GET SINGLE POST BY MONGODB _ID =====================
 // ===================== GET SINGLE POST BY MONGODB _ID =====================
 export const getPostById = async (req, res) => {
   try {
@@ -13,7 +12,11 @@ export const getPostById = async (req, res) => {
       return res.status(400).json({ message: "Invalid post id" });
     }
 
-    const post = await Post.findById(id)
+    const post = await Post.findOne({
+      _id: id,
+      // deleted বা removed post কেউ দেখতে পাবে না
+      moderationStatus: { $nin: ["deleted", "removed"] },
+    })
       .populate(
         "userid",
         "name username greenmarkVerified bio profileImage gender",
@@ -25,11 +28,11 @@ export const getPostById = async (req, res) => {
           select: "name username greenmarkVerified bio profileImage gender",
         },
       })
-      .lean(); // ← .lean() দাও
+      .lean();
 
     if (!post) return res.status(404).json({ message: "Post not found" });
 
-    // ── Reaction check (single post) ──────────────────────
+    // ── Reaction check ────────────────────────────────────
     const userId = req.user?.id || null;
     let isReacted = false;
 
@@ -40,16 +43,12 @@ export const getPostById = async (req, res) => {
       }).lean();
       isReacted = !!reaction;
     }
-    // ──────────────────────────────────────────────────────
 
     res.json({ ...post, isReacted });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
-
-// ===================== GET POSTS BY USERID =====================
-// ===================== GET POSTS BY USERID =====================
 
 // ===================== CREATE NORMAL POST =====================
 export const createPost = async (req, res) => {
@@ -62,7 +61,6 @@ export const createPost = async (req, res) => {
     const files = req.files || [];
     let mediaUrls = [];
     let contentType = "text";
-    // ✅ এখন হবে:
     let videoMeta = null;
 
     if (files.length > 0) {
@@ -113,7 +111,7 @@ export const createPost = async (req, res) => {
         location: location || "",
         tags: tags || [],
         mentions: mentions || [],
-        videoMeta: videoMeta, // ✅ এটা যোগ
+        videoMeta,
       },
       privacy: privacy || "public",
     });
@@ -141,7 +139,6 @@ export const createQuestionPost = async (req, res) => {
       return res.status(400).json({ message: "questionText is required" });
     }
 
-    // Question post এ media নেই
     if (req.files?.length > 0) {
       return res.status(400).json({
         message: "Media upload is not allowed for question post",
@@ -192,7 +189,6 @@ export const createCoursePost = async (req, res) => {
         return res.status(400).json({ message: "Only one video is allowed" });
       }
 
-      // ✅ এখন হবে:
       const imageUploads = await Promise.all(
         images.map(async (file) => {
           const result = await uploadMedia(file);
@@ -250,7 +246,11 @@ export const createSharePost = async (req, res) => {
       return res.status(400).json({ message: "Invalid parent post id" });
     }
 
-    const originalPost = await Post.findById(parentPost);
+    const originalPost = await Post.findOne({
+      _id: parentPost,
+      moderationStatus: { $nin: ["deleted", "removed"] },
+    });
+
     if (!originalPost) {
       return res.status(404).json({ message: "Original post not found" });
     }
@@ -287,7 +287,11 @@ export const createSharePost = async (req, res) => {
 // ===================== UPDATE POST =====================
 export const updatePost = async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id);
+    const post = await Post.findOne({
+      _id: req.params.id,
+      moderationStatus: { $nin: ["deleted", "removed"] },
+    });
+
     if (!post) return res.status(404).json({ message: "Post not found" });
 
     if (req.user.id.toString() !== post.userid.toString()) {
@@ -296,7 +300,6 @@ export const updatePost = async (req, res) => {
         .json({ message: "You can only edit your own posts" });
     }
 
-    // postType অনুযায়ী update
     if (post.postType === "post" && req.body.content) {
       Object.assign(post.content, req.body.content);
     }
@@ -321,20 +324,47 @@ export const updatePost = async (req, res) => {
   }
 };
 
-// ===================== DELETE POST =====================
+// ===================== SOFT DELETE POST =====================
 export const deletePost = async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id);
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+
+    if (!userId) return res.status(401).json({ message: "Login required" });
+
+    const post = await Post.findOne({
+      _id: req.params.id,
+      moderationStatus: { $nin: ["deleted"] },
+    });
+
     if (!post) return res.status(404).json({ message: "Post not found" });
 
-    if (req.user.id.toString() !== post.userid.toString()) {
+    const isOwner = post.userid.toString() === userId.toString();
+    const isAdmin = userRole === "admin";
+
+    if (!isOwner && !isAdmin) {
       return res
         .status(403)
         .json({ message: "You can only delete your own posts" });
     }
 
-    await Post.findByIdAndDelete(req.params.id);
-    res.json({ message: "Post deleted successfully" });
+    const reason = isAdmin && !isOwner ? "admin_removed" : "user_request";
+
+    await Post.findByIdAndUpdate(req.params.id, {
+      moderationStatus: "deleted",
+      deletedAt: new Date(),
+      deletedBy: userId,
+      $push: {
+        moderationHistory: {
+          status: "deleted",
+          changedBy: userId,
+          changedAt: new Date(),
+          reason,
+        },
+      },
+    });
+
+    res.json({ success: true, message: "Post deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -349,7 +379,12 @@ export const getPostCountByUserId = async (req, res) => {
       return res.status(400).json({ message: "UserId is required" });
     }
 
-    const count = await Post.countDocuments({ userid });
+    // deleted/removed post count এ ধরা হবে না
+    const count = await Post.countDocuments({
+      userid,
+      moderationStatus: { $nin: ["deleted", "removed"] },
+    });
+
     return res.status(200).json({ userid, count });
   } catch (err) {
     return res.status(500).json({ message: "Server error" });
