@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import Report from "../../models/others/reportModel.js";
 import Post from "../../models/postmodel.js";
-import User from "../../models/userModel.js";
+import User from "../../models/usermodel.js";
 
 const AUTO_HIDE_THRESHOLD = 10;
 const AUTO_REVIEW_THRESHOLD = 5; // ৫টা report এ under_review তে যাবে
