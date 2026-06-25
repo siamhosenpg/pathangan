@@ -6,6 +6,7 @@ import {
   updateUser,
   deleteUser,
   getSuggestedUsers,
+  savePushToken,
 } from "../controllers/usercontrol.js";
 import { protect } from "../middleware/auth.js";
 
@@ -20,9 +21,10 @@ router.put(
     { name: "profileImage", maxCount: 1 },
     { name: "coverImage", maxCount: 1 },
   ]),
-  updateUser
+  updateUser,
 ); // ✅ ইউজার তথ্য আপডেট করবে
 router.delete("/user/:userid", protect, deleteUser); // ✅ ইউজার ডিলিট করবে
 router.get("/suggested", protect, getSuggestedUsers); // ✅ ইউজার ডিলিট করবে
+router.post("/push-token", protect, savePushToken);
 
 export default router;

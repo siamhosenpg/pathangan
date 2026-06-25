@@ -1,5 +1,7 @@
 import Comment from "../models/commentsModel.js";
 import Post from "../models/postmodel.js";
+import { createNotification } from "./notification/notificationcontroller.js";
+import { Notification } from "../models/notification/notificationmodel.js";
 
 // ===============================
 // HELPER — postType check
@@ -41,7 +43,6 @@ export const createComment = async (req, res) => {
       return res.status(400).json({ message: "text is required" });
     }
 
-    // postType check
     const allowed = await isAllowedPostType(postId);
     if (!allowed) {
       return res.status(403).json({
@@ -56,7 +57,6 @@ export const createComment = async (req, res) => {
       parentCommentId: parentCommentId || null,
     });
 
-    // ← এটা add করো
     if (!parentCommentId) {
       await Post.findByIdAndUpdate(postId, { $inc: { commentsCount: 1 } });
     }
@@ -65,6 +65,41 @@ export const createComment = async (req, res) => {
       "commentUserId",
       "name userid profileImage gender username badges",
     );
+
+    // ===================== NOTIFICATION =====================
+    try {
+      const post = await Post.findById(postId).select("userid");
+
+      if (post) {
+        if (parentCommentId) {
+          // ── Reply: parent comment owner কে notify করো ──
+          const parentComment =
+            await Comment.findById(parentCommentId).select("commentUserId");
+
+          if (parentComment) {
+            await createNotification({
+              userId: parentComment.commentUserId, // reply receiver
+              actorId: req.user.id,
+              type: "reply",
+              postId,
+              commentId: newComment._id,
+            });
+          }
+        } else {
+          // ── Comment: post owner কে notify করো ──
+          await createNotification({
+            userId: post.userid,
+            actorId: req.user.id,
+            type: "comment",
+            postId,
+            commentId: newComment._id,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Comment notification error:", err);
+    }
+    // ========================================================
 
     res.status(201).json({
       success: true,
@@ -84,7 +119,6 @@ export const getCommentsByPost = async (req, res) => {
   try {
     const { postId } = req.params;
 
-    // postType check
     const allowed = await isAllowedPostType(postId);
     if (!allowed) {
       return res.status(403).json({
@@ -174,17 +208,45 @@ export const deleteComment = async (req, res) => {
         .json({ message: "You are not allowed to delete this comment" });
     }
 
+    // reply IDs গুলো আগে collect করো (notification delete এর জন্য)
+    const replies = await Comment.find({
+      parentCommentId: commentId,
+    }).select("_id");
+    const replyIds = replies.map((r) => r._id);
+
     // comment + replies delete
     await Promise.all([
       Comment.deleteOne({ _id: commentId }),
       Comment.deleteMany({ parentCommentId: commentId }),
     ]);
-    // ← এটা add করো
+
     if (!comment.parentCommentId) {
       await Post.findByIdAndUpdate(comment.postId, {
         $inc: { commentsCount: -1 },
       });
     }
+
+    // ===================== NOTIFICATION DELETE =====================
+    try {
+      await Promise.all([
+        // এই comment এর notification delete
+        Notification.deleteMany({
+          "target.commentId": commentId,
+          type: { $in: ["comment", "reply"] },
+        }),
+        // এই comment এর replies এর notification delete
+        replyIds.length > 0
+          ? Notification.deleteMany({
+              "target.commentId": { $in: replyIds },
+              type: "reply",
+            })
+          : Promise.resolve(),
+      ]);
+    } catch (err) {
+      console.error("Comment notification delete error:", err);
+    }
+    // ==============================================================
+
     res.status(200).json({
       success: true,
       message: "Comment deleted successfully",

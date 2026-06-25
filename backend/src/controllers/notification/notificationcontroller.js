@@ -1,9 +1,38 @@
 import mongoose from "mongoose";
 import { Notification } from "../../models/notification/notificationmodel.js";
+import User from "../../models/usermodel.js";
+import { sendPushNotification } from "../../utils/sendPushNotification.js";
+
+// ===================== PUSH MESSAGE MAP =====================
+const getPushMessage = (type, actorName) => {
+  const messages = {
+    follow: {
+      title: "নতুন ফলোয়ার",
+      body: `${actorName} তোমাকে follow করেছে`,
+    },
+    like: {
+      title: "নতুন লাইক",
+      body: `${actorName} তোমার পোস্টে like দিয়েছে`,
+    },
+    comment: {
+      title: "নতুন মন্তব্য",
+      body: `${actorName} তোমার পোস্টে comment করেছে`,
+    },
+    reply: {
+      title: "নতুন রিপ্লাই",
+      body: `${actorName} তোমার comment এ reply করেছে`,
+    },
+    rating: {
+      title: "নতুন রেটিং",
+      body: `${actorName} তোমার উত্তরে rating দিয়েছে`,
+    },
+  };
+
+  return messages[type] || { title: "নতুন নোটিফিকেশন", body: actorName };
+};
 
 /**
  * 🔔 Create Notification — internal service function
- * type: "like" | "comment" | "follow" | "share"
  */
 export const createNotification = async ({
   userId,
@@ -15,8 +44,6 @@ export const createNotification = async ({
   try {
     if (userId.toString() === actorId.toString()) return;
 
-    // ✅ Follow type এর জন্য time window ছাড়াই check
-    // অন্য type এর জন্য ১ ঘণ্টার মধ্যে duplicate check
     const duplicateQuery = {
       userId,
       actorId,
@@ -39,6 +66,35 @@ export const createNotification = async ({
       actorId,
       target: { postId, commentId },
     });
+
+    // ===================== PUSH NOTIFICATION =====================
+    try {
+      // recipient এর pushToken + actor এর name একসাথে
+      const [recipient, actor] = await Promise.all([
+        User.findById(userId).select("pushToken").lean(),
+        User.findById(actorId).select("name").lean(),
+      ]);
+
+      if (recipient?.pushToken && actor?.name) {
+        const { title, body } = getPushMessage(type, actor.name);
+
+        await sendPushNotification({
+          pushToken: recipient.pushToken,
+          title,
+          body,
+          data: {
+            type,
+            postId: postId?.toString() || null,
+            commentId: commentId?.toString() || null,
+            actorId: actorId?.toString(),
+          },
+        });
+      }
+    } catch (pushErr) {
+      // push fail হলে main notification flow আটকাবে না
+      console.error("Push notification error:", pushErr);
+    }
+    // =====================================================
   } catch (error) {
     console.error("createNotification error:", error);
   }

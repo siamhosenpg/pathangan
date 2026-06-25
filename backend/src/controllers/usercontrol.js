@@ -212,3 +212,17 @@ export const getSuggestedUsers = async (req, res) => {
     });
   }
 };
+
+export const savePushToken = async (req, res) => {
+  try {
+    const { pushToken } = req.body;
+    if (!pushToken) {
+      return res.status(400).json({ message: "Push token required" });
+    }
+
+    await User.findByIdAndUpdate(req.user.id, { pushToken });
+    res.status(200).json({ message: "Push token saved" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};

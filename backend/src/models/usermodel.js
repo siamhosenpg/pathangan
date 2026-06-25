@@ -215,6 +215,8 @@ const UserSchema = new Schema(
       ref: "User",
       default: null,
     },
+    // UserSchema তে নতুন field
+    pushToken: { type: String, default: null },
 
     joinedAt: { type: Date, default: Date.now },
     lastActive: { type: Date, default: Date.now },
