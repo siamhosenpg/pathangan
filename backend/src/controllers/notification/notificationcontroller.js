@@ -13,20 +13,24 @@ export const createNotification = async ({
   commentId = null,
 }) => {
   try {
-    // নিজেকে নিজে notification না
     if (userId.toString() === actorId.toString()) return;
 
-    // duplicate check — same actor, same type, same target (1 ঘণ্টার মধ্যে)
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-    const duplicate = await Notification.findOne({
+    // ✅ Follow type এর জন্য time window ছাড়াই check
+    // অন্য type এর জন্য ১ ঘণ্টার মধ্যে duplicate check
+    const duplicateQuery = {
       userId,
       actorId,
       type,
       "target.postId": postId,
       "target.commentId": commentId,
-      createdAt: { $gte: oneHourAgo },
-    });
+    };
 
+    if (type !== "follow") {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      duplicateQuery.createdAt = { $gte: oneHourAgo };
+    }
+
+    const duplicate = await Notification.findOne(duplicateQuery);
     if (duplicate) return;
 
     await Notification.create({

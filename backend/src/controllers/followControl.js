@@ -2,6 +2,7 @@ import Follow from "../models/followModel.js";
 import User from "../models/usermodel.js";
 import mongoose from "mongoose";
 import { createNotification } from "../controllers/notification/notificationcontroller.js";
+import { Notification } from "../models/notification/notificationmodel.js";
 
 // 🔹 Follow a user
 export const followUser = async (req, res) => {
@@ -63,12 +64,11 @@ export const followUser = async (req, res) => {
 };
 
 // 🔹 Unfollow a user
+// 🔹 Unfollow a user
 export const unfollowUser = async (req, res) => {
   try {
     const { userId } = req.params;
     const followerId = req.user.id;
-
-    console.log("Unfollow attempt:", { userId, followerId });
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "Invalid user id" });
@@ -85,20 +85,24 @@ export const unfollowUser = async (req, res) => {
         .json({ message: "You are not following this user" });
     }
 
-    const result1 = await User.findByIdAndUpdate(
-      userId,
-      { $inc: { "activityStats.totalFollowers": -1 } },
-      { new: true },
-    );
+    await User.findByIdAndUpdate(userId, {
+      $inc: { "activityStats.totalFollowers": -1 },
+    });
 
-    const result2 = await User.findByIdAndUpdate(
-      followerId,
-      { $inc: { "activityStats.totalFollowing": -1 } },
-      { new: true },
-    );
+    await User.findByIdAndUpdate(followerId, {
+      $inc: { "activityStats.totalFollowing": -1 },
+    });
 
-    console.log("Unfollowed user activityStats:", result1?.activityStats);
-    console.log("Unfollower user activityStats:", result2?.activityStats);
+    // ✅ Unfollow করলে follow notification remove করো
+    try {
+      await Notification.deleteOne({
+        userId, // যাকে follow করেছিল (notification receiver)
+        actorId: followerId, // যে follow করেছিল
+        type: "follow",
+      });
+    } catch (err) {
+      console.error("Unfollow notification delete error:", err);
+    }
 
     return res
       .status(200)
