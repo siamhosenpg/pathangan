@@ -7,8 +7,8 @@ export const sendPushNotification = async ({
   title,
   body,
   data = {},
+  imageUrl = null,
 }) => {
-  // Token valid কিনা চেক
   if (!Expo.isExpoPushToken(pushToken)) {
     console.error(`Invalid push token: ${pushToken}`);
     return;
@@ -19,7 +19,8 @@ export const sendPushNotification = async ({
     sound: "default",
     title,
     body,
-    data, // extra payload (postId, userId etc.)
+    data,
+    ...(imageUrl && { richContent: { image: imageUrl } }),
   };
 
   try {

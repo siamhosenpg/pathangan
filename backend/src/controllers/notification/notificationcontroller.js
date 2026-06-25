@@ -72,7 +72,7 @@ export const createNotification = async ({
       // recipient এর pushToken + actor এর name একসাথে
       const [recipient, actor] = await Promise.all([
         User.findById(userId).select("pushToken").lean(),
-        User.findById(actorId).select("name").lean(),
+        User.findById(actorId).select("name profileImage").lean(),
       ]);
 
       if (recipient?.pushToken && actor?.name) {
@@ -82,6 +82,7 @@ export const createNotification = async ({
           pushToken: recipient.pushToken,
           title,
           body,
+          imageUrl: actor.profileImage || null,
           data: {
             type,
             postId: postId?.toString() || null,
