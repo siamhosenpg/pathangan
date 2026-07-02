@@ -122,7 +122,7 @@ export const getHandouts = async (req, res) => {
     const handouts = await Handout.find(filter)
       .sort({ _id: -1 })
       .limit(pageLimit + 1)
-      .populate("user", "username fullName avatar")
+      .populate("user", "username name profileImage greenmarkVerified")
       .lean();
 
     const hasMore = handouts.length > pageLimit;
@@ -170,7 +170,7 @@ export const getHandoutBySlug = async (req, res) => {
     const { slug } = req.params;
 
     const handout = await Handout.findOne({ slug, isDeleted: false })
-      .populate("user", "username fullName avatar")
+      .populate("user", "username name profileImage greenmarkVerified")
       .lean();
 
     if (!handout) {
