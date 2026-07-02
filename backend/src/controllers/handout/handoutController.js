@@ -102,6 +102,8 @@ export const publishHandout = async (req, res) => {
 };
 
 // ── Feed: সব published handout, cursor pagination + category filter ──
+
+// ── Feed: সব published handout, cursor pagination + category filter ──
 export const getHandouts = async (req, res) => {
   try {
     const { cursor, limit = 10, category, search } = req.query;
@@ -109,7 +111,12 @@ export const getHandouts = async (req, res) => {
 
     const filter = { isDeleted: false, status: "published" };
     if (category) filter.category = category;
-    if (cursor) filter._id = { $lt: cursor };
+
+    // ✅ cursor থাকলে এবং সেটা valid ObjectId হলেই filter এ যোগ হবে
+    if (cursor && mongoose.Types.ObjectId.isValid(cursor)) {
+      filter._id = { $lt: cursor };
+    }
+
     if (search) filter.$text = { $search: search };
 
     const handouts = await Handout.find(filter)
@@ -136,7 +143,11 @@ export const getMyHandouts = async (req, res) => {
 
     const filter = { isDeleted: false, user: req.user.id };
     if (status) filter.status = status;
-    if (cursor) filter._id = { $lt: cursor };
+
+    // ✅ একই গার্ড এখানেও
+    if (cursor && mongoose.Types.ObjectId.isValid(cursor)) {
+      filter._id = { $lt: cursor };
+    }
 
     const handouts = await Handout.find(filter)
       .sort({ _id: -1 })
