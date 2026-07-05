@@ -82,12 +82,22 @@ export const createPost = async (req, res) => {
 
       if (images.length > 0) {
         contentType = "image";
-        const results = await Promise.all(images.map((f) => uploadMedia(f)));
+        const results = await Promise.all(
+          images.map((f) =>
+            uploadMedia(f, {
+              baseFolder: "posts",
+              username: req.user.username,
+            }),
+          ),
+        );
         mediaUrls = results.map((r) => r.url);
       }
       if (videos.length === 1) {
         contentType = "video";
-        const result = await uploadMedia(videos[0]);
+        const result = await uploadMedia(videos[0], {
+          baseFolder: "posts",
+          username: req.user.username,
+        });
         mediaUrls = [result.url];
         if (result.width && result.height) {
           videoMeta = { width: result.width, height: result.height };
@@ -95,7 +105,10 @@ export const createPost = async (req, res) => {
       }
       if (audios.length === 1) {
         contentType = "audio";
-        const result = await uploadMedia(audios[0]);
+        const result = await uploadMedia(audios[0], {
+          baseFolder: "posts",
+          username: req.user.username,
+        });
         mediaUrls = [result.url];
       }
     }
@@ -191,14 +204,20 @@ export const createCoursePost = async (req, res) => {
 
       const imageUploads = await Promise.all(
         images.map(async (file) => {
-          const result = await uploadMedia(file);
+          const result = await uploadMedia(file, {
+            baseFolder: "courses",
+            username: req.user.username,
+          });
           return { type: "image", url: result.url };
         }),
       );
 
       const videoUploads = await Promise.all(
         videos.map(async (file) => {
-          const result = await uploadMedia(file);
+          const result = await uploadMedia(file, {
+            baseFolder: "courses",
+            username: req.user.username,
+          });
           return { type: "video", url: result.url };
         }),
       );

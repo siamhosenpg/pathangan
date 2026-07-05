@@ -1,7 +1,18 @@
 import sharp from "sharp";
 import { v2 as cloudinary } from "cloudinary";
 
-export const uploadMedia = async (file) => {
+/**
+ * @param {Express.Multer.File} file - multer memoryStorage file
+ * @param {Object} options
+ * @param {string} [options.baseFolder="posts"] - main folder name (e.g. "posts", "handouts")
+ * @param {string} [options.username] - user এর username, দিলে folder হবে `${baseFolder}/${username}`
+ */
+export const uploadMedia = async (file, options = {}) => {
+  const { baseFolder = "posts", username } = options;
+
+  // username দিলে সেই ইউজারের নিজস্ব sub-folder এ যাবে, না দিলে আগের মতো একটাই folder
+  const folder = username ? `${baseFolder}/${username}` : baseFolder;
+
   if (file.mimetype.startsWith("image/")) {
     const image = sharp(file.buffer, { failOnError: false });
     const meta = await image.metadata();
@@ -20,14 +31,11 @@ export const uploadMedia = async (file) => {
     }
     return new Promise((resolve, reject) => {
       cloudinary.uploader
-        .upload_stream(
-          { folder: "posts", resource_type: "image" },
-          (err, result) => {
-            if (err) reject(err);
-            // ✅ image — শুধু url return করো (আগের মতো)
-            else resolve({ url: result.secure_url });
-          },
-        )
+        .upload_stream({ folder, resource_type: "image" }, (err, result) => {
+          if (err) reject(err);
+          // ✅ image — শুধু url return করো (আগের মতো)
+          else resolve({ url: result.secure_url });
+        })
         .end(buffer);
     });
   }
@@ -37,7 +45,7 @@ export const uploadMedia = async (file) => {
     cloudinary.uploader
       .upload_stream(
         {
-          folder: "posts",
+          folder,
           resource_type: "auto",
           chunk_size: 6000000,
         },

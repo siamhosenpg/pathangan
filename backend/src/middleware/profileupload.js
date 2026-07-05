@@ -4,10 +4,13 @@ import cloudinary from "../config/cloudinary.js";
 
 const imageStorage = new CloudinaryStorage({
   cloudinary,
-  params: {
-    folder: "users",
-    allowed_formats: ["jpg", "png", "jpeg", "webp"],
-    resource_type: "image",
+  params: async (req, file) => {
+    const username = req.user?.username || "unknown";
+    return {
+      folder: `users/${username}`,
+      allowed_formats: ["jpg", "png", "jpeg", "webp"],
+      resource_type: "image",
+    };
   },
 });
 

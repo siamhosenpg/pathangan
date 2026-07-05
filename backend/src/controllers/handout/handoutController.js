@@ -1,3 +1,5 @@
+import mongoose from "mongoose"; // আগের bug fix, ভুলে যেও না
+import { uploadMedia } from "../../utils/uploadToCloudinary.js";
 import Handout from "../../models/handoutModel.js";
 import Chapter from "../../models/chapterModel.js";
 import { generateSlug } from "../../utils/slugify.js";
@@ -5,13 +7,33 @@ import { generateSlug } from "../../utils/slugify.js";
 // ── Handout তৈরি (draft হিসেবে শুরু হবে) ──
 export const createHandout = async (req, res) => {
   try {
-    const { title, description, coverImage, category, tags } = req.body;
+    const { title, description, category } = req.body;
+    let { tags } = req.body;
 
     if (!title || !description || !category) {
       return res.status(400).json({
         success: false,
         message: "title, description ও category আবশ্যক",
       });
+    }
+
+    let coverImage = null;
+    if (req.file) {
+      const result = await uploadMedia(req.file, {
+        baseFolder: "handouts",
+        username: req.user.username,
+      });
+      coverImage = result.url;
+    }
+    if (typeof tags === "string") {
+      try {
+        tags = JSON.parse(tags);
+      } catch {
+        tags = tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean);
+      }
     }
 
     const slug = generateSlug(title);
@@ -21,7 +43,7 @@ export const createHandout = async (req, res) => {
       title,
       slug,
       description,
-      coverImage: coverImage || null,
+      coverImage,
       category,
       tags: Array.isArray(tags) ? tags : [],
       status: "draft",
@@ -57,8 +79,15 @@ export const updateHandout = async (req, res) => {
         handout.slug = generateSlug(title);
       }
     }
+
     if (description) handout.description = description;
-    if (coverImage !== undefined) handout.coverImage = coverImage;
+    if (req.file) {
+      const result = await uploadMedia(req.file, {
+        baseFolder: "handouts",
+        username: req.user.username,
+      });
+      handout.coverImage = result.url;
+    }
     if (category) handout.category = category;
     if (Array.isArray(tags)) handout.tags = tags;
 

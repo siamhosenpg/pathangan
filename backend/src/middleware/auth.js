@@ -15,7 +15,11 @@ export function protect(req, res, next) {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = { id: decoded.id, role: decoded.role };
+    req.user = {
+      id: decoded.id,
+      role: decoded.role,
+      username: decoded.username,
+    };
     next();
   } catch (err) {
     return res.status(401).json({ message: "Invalid token" });
@@ -31,7 +35,11 @@ export function optionalAuth(req, res, next) {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = { id: decoded.id, role: decoded.role };
+    req.user = {
+      id: decoded.id,
+      role: decoded.role,
+      username: decoded.username,
+    };
     next();
   } catch {
     req.user = null;

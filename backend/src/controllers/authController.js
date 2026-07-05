@@ -50,7 +50,12 @@ export async function register(req, res) {
     });
 
     // role সহ token তৈরি
-    const token = generateToken({ id: user._id, role: user.role });
+    const token = generateToken({
+      id: user._id,
+      role: user.role,
+      username: user.username,
+      greenmarkVerified: user.greenmarkVerified || false,
+    });
 
     res.cookie("token", token, getCookieOptions());
 
@@ -111,7 +116,12 @@ export async function login(req, res) {
     }
 
     // role সহ token তৈরি
-    const token = generateToken({ id: user._id, role: user.role });
+    const token = generateToken({
+      id: user._id,
+      role: user.role,
+      username: user.username,
+      greenmarkVerified: user.greenmarkVerified || false,
+    });
 
     res.cookie("token", token, getCookieOptions());
 
