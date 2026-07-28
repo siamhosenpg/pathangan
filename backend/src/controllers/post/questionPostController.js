@@ -196,6 +196,7 @@ export const getQuestionsByUserId = async (req, res) => {
 };
 
 // ===================== GET SINGLE QUESTION BY ID =====================
+// ===================== GET SINGLE QUESTION BY ID =====================
 export const getQuestionById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -241,11 +242,21 @@ export const getQuestionById = async (req, res) => {
       }
     }
 
-    res.json({
+    // ── Merge isReacted + isFollowing ──────────────────────
+    let finalQuestion = {
       ...question,
       isReacted,
-      userid: { ...question.userid, isFollowing },
-    });
+      userid: question.userid
+        ? { ...question.userid, isFollowing }
+        : question.userid,
+    };
+
+    // ── Answer preview merge (helper array নেয়, তাই wrap/unwrap করা হলো) ──
+    const [withPreview] = await attachAnswerPreviews([finalQuestion]);
+    finalQuestion = withPreview;
+    // ────────────────────────────────────────────────────────
+
+    res.json(finalQuestion);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
