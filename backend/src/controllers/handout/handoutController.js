@@ -194,11 +194,17 @@ export const getMyHandouts = async (req, res) => {
 };
 
 // ── slug দিয়ে একটা handout + তার chapters (TOC) দেখা ──
+// ── slug অথবা id দিয়ে একটা handout + তার chapters (TOC) দেখা ──
 export const getHandoutBySlug = async (req, res) => {
   try {
     const { slug } = req.params;
 
-    const handout = await Handout.findOne({ slug, isDeleted: false })
+    const isId = mongoose.Types.ObjectId.isValid(slug);
+
+    const handout = await Handout.findOne({
+      ...(isId ? { _id: slug } : { slug }),
+      isDeleted: false,
+    })
       .populate("user", "username name profileImage greenmarkVerified")
       .lean();
 
