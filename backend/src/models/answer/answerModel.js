@@ -34,12 +34,17 @@ const answerSchema = new mongoose.Schema(
 
     isDeleted: { type: Boolean, default: false, index: true },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // একই user একই question এ একবারই answer দিতে পারবে
-answerSchema.index({ questionId: 1, userId: 1 }, { unique: true });
-
+answerSchema.index(
+  { questionId: 1, userId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { isDeleted: false },
+  },
+);
 answerSchema.index({ text: "text" });
 
 const Answer = mongoose.model("Answer", answerSchema);

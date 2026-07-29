@@ -34,6 +34,16 @@ const handoutSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+
+    price: {
+      type: Number,
+      default: 0,
+      min: [0, "Price ঋণাত্মক হতে পারবে না"],
+    },
+    currency: {
+      type: String,
+      default: "BDT",
+    },
     category: {
       type: String,
       enum: ["golpo", "itihash", "dharmiyo", "kobita", "ovizoggota", "onnanno"],
@@ -92,6 +102,7 @@ const handoutSchema = new mongoose.Schema(
 handoutSchema.index({ user: 1, isDeleted: 1, status: 1 });
 handoutSchema.index({ category: 1, isDeleted: 1, status: 1, publishedAt: -1 });
 handoutSchema.index({ title: "text", description: "text", tags: "text" });
+handoutSchema.index({ isDeleted: 1, status: 1, price: 1 });
 
 const Handout = mongoose.model("Handout", handoutSchema);
 export default Handout;

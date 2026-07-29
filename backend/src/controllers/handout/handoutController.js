@@ -4,16 +4,37 @@ import Handout from "../../models/handoutModel.js";
 import Chapter from "../../models/chapterModel.js";
 import { generateSlug } from "../../utils/slugify.js";
 
+// ── Price validate করার helper (create + update দুই জায়গায় ব্যবহার হবে) ──
+const validatePrice = (price) => {
+  if (price === undefined || price === null || price === "") {
+    return { valid: true, value: 0 };
+  }
+  const num = Number(price);
+  if (isNaN(num) || num < 0) {
+    return { valid: false, value: null };
+  }
+  return { valid: true, value: num };
+};
+
 // ── Handout তৈরি (draft হিসেবে শুরু হবে) ──
 export const createHandout = async (req, res) => {
   try {
-    const { title, description, category } = req.body;
+    const { title, description, category, price } = req.body;
     let { tags } = req.body;
 
     if (!title || !description || !category) {
       return res.status(400).json({
         success: false,
         message: "title, description ও category আবশ্যক",
+      });
+    }
+
+    // ✅ price validation — না দিলে default 0 (free)
+    const priceCheck = validatePrice(price);
+    if (!priceCheck.valid) {
+      return res.status(400).json({
+        success: false,
+        message: "Price একটি সঠিক ধনাত্মক সংখ্যা হতে হবে",
       });
     }
 
@@ -25,6 +46,7 @@ export const createHandout = async (req, res) => {
       });
       coverImage = result.url;
     }
+
     if (typeof tags === "string") {
       try {
         tags = JSON.parse(tags);
@@ -46,6 +68,7 @@ export const createHandout = async (req, res) => {
       coverImage,
       category,
       tags: Array.isArray(tags) ? tags : [],
+      price: priceCheck.value, // ✅
       status: "draft",
     });
 
@@ -59,7 +82,7 @@ export const createHandout = async (req, res) => {
 export const updateHandout = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, coverImage, category, tags } = req.body;
+    const { title, description, category, tags, price } = req.body;
 
     const handout = await Handout.findOne({ _id: id, isDeleted: false });
     if (!handout) {
@@ -72,6 +95,18 @@ export const updateHandout = async (req, res) => {
       return res.status(403).json({ success: false, message: "অনুমতি নেই" });
     }
 
+    // ✅ price শুধু তখনই আপডেট হবে যখন req.body তে key টা আসছে
+    if (price !== undefined) {
+      const priceCheck = validatePrice(price);
+      if (!priceCheck.valid) {
+        return res.status(400).json({
+          success: false,
+          message: "Price একটি সঠিক ধনাত্মক সংখ্যা হতে হবে",
+        });
+      }
+      handout.price = priceCheck.value;
+    }
+
     if (title) {
       handout.title = title;
       // slug শুধু draft অবস্থায় বদলাবে, published হলে URL ভাঙবে না
@@ -81,6 +116,7 @@ export const updateHandout = async (req, res) => {
     }
 
     if (description) handout.description = description;
+
     if (req.file) {
       const result = await uploadMedia(req.file, {
         baseFolder: "handouts",
@@ -88,6 +124,7 @@ export const updateHandout = async (req, res) => {
       });
       handout.coverImage = result.url;
     }
+
     if (category) handout.category = category;
     if (Array.isArray(tags)) handout.tags = tags;
 
@@ -131,15 +168,17 @@ export const publishHandout = async (req, res) => {
 };
 
 // ── Feed: সব published handout, cursor pagination + category filter ──
-
-// ── Feed: সব published handout, cursor pagination + category filter ──
 export const getHandouts = async (req, res) => {
   try {
-    const { cursor, limit = 10, category, search } = req.query;
+    const { cursor, limit = 10, category, search, pricing } = req.query;
     const pageLimit = Math.min(Number(limit), 30);
 
     const filter = { isDeleted: false, status: "published" };
     if (category) filter.category = category;
+
+    // ✅ pricing=free বা pricing=paid দিয়ে filter (optional query param)
+    if (pricing === "free") filter.price = 0;
+    if (pricing === "paid") filter.price = { $gt: 0 };
 
     // ✅ cursor থাকলে এবং সেটা valid ObjectId হলেই filter এ যোগ হবে
     if (cursor && mongoose.Types.ObjectId.isValid(cursor)) {
@@ -193,7 +232,6 @@ export const getMyHandouts = async (req, res) => {
   }
 };
 
-// ── slug দিয়ে একটা handout + তার chapters (TOC) দেখা ──
 // ── slug অথবা id দিয়ে একটা handout + তার chapters (TOC) দেখা ──
 export const getHandoutBySlug = async (req, res) => {
   try {

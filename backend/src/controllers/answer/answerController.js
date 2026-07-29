@@ -41,7 +41,11 @@ export const createAnswer = async (req, res) => {
         .json({ message: "Answer cannot exceed 10000 characters" });
     }
 
-    const existing = await Answer.findOne({ questionId, userId });
+    const existing = await Answer.findOne({
+      questionId,
+      userId,
+      isDeleted: false,
+    });
     if (existing) {
       return res
         .status(409)
