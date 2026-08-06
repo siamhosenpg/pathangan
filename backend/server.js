@@ -187,6 +187,15 @@ app.use((req, res) => {
   });
 });
 
+// ── ৯. গ্লোবাল এরর হ্যান্ডলার ──
+app.use((err, req, res, next) => {
+  console.error("Server Error:", err.stack);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || "Internal Server Error",
+  });
+});
+
 // ── ৯. DB কানেক্ট করে সার্ভার চালু ──
 (async () => {
   await connectDB();

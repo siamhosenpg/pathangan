@@ -143,5 +143,9 @@ postSchema.index({
   "question.questionText": "text",
 });
 
+// 🔥 High-Performance Compound Indexes for High Traffic (1,000+ Users)
+postSchema.index({ moderationStatus: 1, createdAt: -1 });
+postSchema.index({ userid: 1, createdAt: -1 });
+
 const Post = mongoose.model("Post", postSchema);
 export default Post;

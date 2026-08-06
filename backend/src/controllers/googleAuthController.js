@@ -20,7 +20,12 @@ export async function googleCallback(req, res) {
       );
     }
 
-    const token = generateToken({ id: user._id });
+    const token = generateToken({
+      id: user._id,
+      role: user.role,
+      username: user.username,
+      greenmarkVerified: user.greenmarkVerified || false,
+    });
     res.cookie("token", token, getCookieOptions());
 
     // token URL এ দিয়ে redirect — frontend localStorage এ রাখবে
@@ -82,7 +87,12 @@ export async function googleMobileAuth(req, res) {
       });
     }
 
-    const token = generateToken({ id: user._id });
+    const token = generateToken({
+      id: user._id,
+      role: user.role,
+      username: user.username,
+      greenmarkVerified: user.greenmarkVerified || false,
+    });
     res.cookie("token", token, getCookieOptions());
 
     return res.status(200).json({
