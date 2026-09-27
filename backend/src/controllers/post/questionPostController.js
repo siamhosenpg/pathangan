@@ -4,13 +4,18 @@ import Reaction from "../../models/reactionModel.js";
 import Follow from "../../models/followModel.js";
 import { attachAnswerPreviews } from "../../helpers/attachAnswerPreviews.js";
 
+const HIDDEN_STATUSES = ["deleted", "removed", "auto_hidden"];
+
 // ===================== GET ALL QUESTION POSTS (cursor-based, N+1 fixed) =====================
 export const getAllQuestions = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
     const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
-    const query = { postType: "question" };
+    const query = {
+      postType: "question",
+      moderationStatus: { $nin: HIDDEN_STATUSES },
+    };
     if (cursor) query.createdAt = { $lt: cursor };
 
     const questions = await Post.find(query)
@@ -108,7 +113,11 @@ export const getQuestionsByUserId = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
-    const query = { userid, postType: "question" };
+    const query = {
+      userid,
+      postType: "question",
+      moderationStatus: { $nin: HIDDEN_STATUSES },
+    };
     if (cursor) query.createdAt = { $lt: cursor };
 
     const questions = await Post.find(query)
@@ -196,7 +205,6 @@ export const getQuestionsByUserId = async (req, res) => {
 };
 
 // ===================== GET SINGLE QUESTION BY ID =====================
-// ===================== GET SINGLE QUESTION BY ID =====================
 export const getQuestionById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -211,6 +219,19 @@ export const getQuestionById = async (req, res) => {
 
     if (!question)
       return res.status(404).json({ message: "Question not found" });
+
+    // ── Soft-deleted check ─────────────────────────────────
+    // Post exist করে কিন্তু moderationStatus hidden হলে,
+    // 404 না দিয়ে আলাদাভাবে জানানো হচ্ছে যে পোস্টটি deleted
+    if (HIDDEN_STATUSES.includes(question.moderationStatus)) {
+      return res.status(200).json({
+        isDeleted: true,
+        moderationStatus: question.moderationStatus,
+        message: "This post has been deleted",
+        _id: question._id,
+      });
+    }
+    // ────────────────────────────────────────────────────────
 
     const userId = req.user?.id || null;
 
