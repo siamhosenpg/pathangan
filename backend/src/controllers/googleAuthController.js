@@ -39,22 +39,62 @@ export async function googleCallback(req, res) {
 }
 
 // ── Mobile: Expo/React Native এর জন্য ────────────────────────────────────────
-// expo-auth-session দিয়ে Google থেকে info নিয়ে এখানে POST করবে
-// Body: { googleId, email, name, photo }
+// expo-auth-session থেকে পাওয়া accessToken এখানে POST করবে
+// Body: { accessToken }
+// Backend নিজে Google থেকে user info verify করবে
 export async function googleMobileAuth(req, res) {
   try {
-    const { googleId, email, name, photo } = req.body;
+    const { accessToken } = req.body;
+
+    if (!accessToken) {
+      return res.status(400).json({ message: "accessToken required" });
+    }
+
+    // Google থেকে token verify করে user info আনো
+    const r = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!r.ok) {
+      return res.status(401).json({ message: "Invalid Google token" });
+    }
+
+    const g = await r.json(); // { sub, email, email_verified, name, picture }
+
+    if (!g.email_verified) {
+      return res.status(401).json({ message: "Google email not verified" });
+    }
+
+    const googleId = g.sub;
+    const email = g.email;
+    const name = g.name;
+    const photo = g.picture;
 
     if (!googleId || !email) {
-      return res
-        .status(400)
-        .json({ message: "googleId and email are required" });
+      return res.status(400).json({ message: "Invalid Google profile" });
     }
 
     const emailLower = email.toLowerCase();
     let user = await User.findOne({ email: emailLower });
 
     if (user) {
+      // suspended / banned হলে login block (normal login এর মতোই)
+      if (!["active", "warned"].includes(user.accountStatus)) {
+        const messages = {
+          suspended: `Account suspended until ${user.suspension?.expiresAt ? new Date(user.suspension.expiresAt).toLocaleDateString() : "further notice"}. Reason: ${user.suspension?.reason ?? "policy violation"}`,
+          banned: "Account permanently banned. Contact support.",
+          deactivated: "Account deactivated. Please reactivate to continue.",
+          deleted: "Account no longer exists.",
+          under_review: "Account is under review. Contact support.",
+        };
+
+        return res.status(403).json({
+          message:
+            messages[user.accountStatus] ??
+            `Account is ${user.accountStatus}. Contact support.`,
+        });
+      }
+
       // আগে থেকে আছে — googleId link করে দাও
       if (!user.googleId) {
         user.googleId = googleId;
@@ -102,6 +142,7 @@ export async function googleMobileAuth(req, res) {
         username: user.username,
         name: user.name,
         email: user.email,
+        role: user.role,
         profileImage: user.profileImage,
         greenmarkVerified: user.greenmarkVerified || false,
         provider: user.provider,
