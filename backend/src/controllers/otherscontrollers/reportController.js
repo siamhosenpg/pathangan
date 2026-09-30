@@ -255,6 +255,7 @@ export const changeUserStatus = async (req, res) => {
       };
     }
 
+    // ✅ FIX: $inc, $set, $push এখন তিনটাই top-level এ আলাদা আলাদা
     if (status === "warned") {
       await User.findByIdAndUpdate(userId, {
         $inc: { "warning.count": 1 },
@@ -262,16 +263,8 @@ export const changeUserStatus = async (req, res) => {
           accountStatus: "warned",
           "warning.lastWarnedAt": new Date(),
           "warning.lastReason": reason ?? null,
-          $push: {
-            moderationHistory: {
-              status: "warned",
-              changedBy: adminId,
-              changedAt: new Date(),
-              reason: reason ?? null,
-              note: note ?? null,
-            },
-          },
         },
+        ...pushModerationHistory("warned", adminId, reason, note),
       });
 
       return res.status(200).json({ success: true, message: "User warned" });
