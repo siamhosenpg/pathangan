@@ -8,6 +8,7 @@ import {
   getFollowing,
   getFollowersCount,
   getFollowingCount,
+  checkIsFollowing,
 } from "../controllers/followControl.js";
 
 const router = express.Router();
@@ -22,5 +23,7 @@ router.get("/following/:userId", getFollowing); // public
 // 🔹 Get followers / following count
 router.get("/followers/count/:userId", getFollowersCount); // public
 router.get("/following/count/:userId", getFollowingCount); // public
+
+router.get("/is-following/:userId", protect, checkIsFollowing);
 
 export default router;

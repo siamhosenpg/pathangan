@@ -4,13 +4,26 @@ import mongoose from "mongoose";
 import { createNotification } from "../controllers/notification/notificationcontroller.js";
 import { Notification } from "../models/notification/notificationmodel.js";
 
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 50;
+
+// 🔹 Helper: limit ar cursor parse kora
+const parsePagination = (query) => {
+  let limit = parseInt(query.limit, 10);
+  if (isNaN(limit) || limit < 1) limit = DEFAULT_LIMIT;
+  if (limit > MAX_LIMIT) limit = MAX_LIMIT;
+
+  const cursor = query.cursor || null;
+  const cursorValid = !cursor || mongoose.Types.ObjectId.isValid(cursor);
+
+  return { limit, cursor, cursorValid };
+};
+
 // 🔹 Follow a user
 export const followUser = async (req, res) => {
   try {
     const { userId } = req.params;
     const followerId = req.user.id;
-
-    console.log("Follow attempt:", { userId, followerId });
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "Invalid user id" });
@@ -27,20 +40,14 @@ export const followUser = async (req, res) => {
 
     const follow = await Follow.create({ followerId, followingId: userId });
 
-    const result1 = await User.findByIdAndUpdate(
-      userId,
-      { $inc: { "activityStats.totalFollowers": 1 } },
-      { new: true },
-    );
-
-    const result2 = await User.findByIdAndUpdate(
-      followerId,
-      { $inc: { "activityStats.totalFollowing": 1 } },
-      { new: true },
-    );
-
-    console.log("Followed user activityStats:", result1?.activityStats);
-    console.log("Follower user activityStats:", result2?.activityStats);
+    await Promise.all([
+      User.findByIdAndUpdate(userId, {
+        $inc: { "activityStats.totalFollowers": 1 },
+      }),
+      User.findByIdAndUpdate(followerId, {
+        $inc: { "activityStats.totalFollowing": 1 },
+      }),
+    ]);
 
     try {
       await createNotification({
@@ -64,7 +71,6 @@ export const followUser = async (req, res) => {
 };
 
 // 🔹 Unfollow a user
-// 🔹 Unfollow a user
 export const unfollowUser = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -85,19 +91,20 @@ export const unfollowUser = async (req, res) => {
         .json({ message: "You are not following this user" });
     }
 
-    await User.findByIdAndUpdate(userId, {
-      $inc: { "activityStats.totalFollowers": -1 },
-    });
+    await Promise.all([
+      User.findByIdAndUpdate(userId, {
+        $inc: { "activityStats.totalFollowers": -1 },
+      }),
+      User.findByIdAndUpdate(followerId, {
+        $inc: { "activityStats.totalFollowing": -1 },
+      }),
+    ]);
 
-    await User.findByIdAndUpdate(followerId, {
-      $inc: { "activityStats.totalFollowing": -1 },
-    });
-
-    // ✅ Unfollow করলে follow notification remove করো
+    // ✅ Unfollow korle follow notification remove koro
     try {
       await Notification.deleteOne({
-        userId, // যাকে follow করেছিল (notification receiver)
-        actorId: followerId, // যে follow করেছিল
+        userId,
+        actorId: followerId,
         type: "follow",
       });
     } catch (err) {
@@ -113,7 +120,8 @@ export const unfollowUser = async (req, res) => {
   }
 };
 
-// 🔹 Get followers of a user
+// 🔹 Get followers of a user (infinite scroll)
+// GET /followers/:userId?limit=20&cursor=<lastId>
 export const getFollowers = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -122,20 +130,44 @@ export const getFollowers = async (req, res) => {
       return res.status(400).json({ message: "Invalid user id" });
     }
 
-    const followers = await Follow.find({ followingId: userId })
+    const { limit, cursor, cursorValid } = parsePagination(req.query);
+    if (!cursorValid) {
+      return res.status(400).json({ message: "Invalid cursor" });
+    }
+
+    const filter = { followingId: userId };
+    if (cursor) filter._id = { $lt: cursor };
+
+    // limit + 1 anchi jate bujhte pari aro data ache kina
+    const docs = await Follow.find(filter)
+      .sort({ _id: -1 })
+      .limit(limit + 1)
       .populate("followerId", "name username profileImage")
       .lean();
 
-    return res
-      .status(200)
-      .json({ success: true, count: followers.length, followers });
+    const hasMore = docs.length > limit;
+    const pageDocs = hasMore ? docs.slice(0, limit) : docs;
+    const nextCursor =
+      hasMore && pageDocs.length > 0 ? pageDocs[pageDocs.length - 1]._id : null;
+
+    // deleted user thakle populate null hobe, seta filter kore dilam
+    const followers = pageDocs.filter((f) => f.followerId);
+
+    return res.status(200).json({
+      success: true,
+      count: followers.length,
+      followers,
+      nextCursor,
+      hasMore,
+    });
   } catch (err) {
     console.error("Get followers error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
-// 🔹 Get following of a user
+// 🔹 Get following of a user (infinite scroll)
+// GET /following/:userId?limit=20&cursor=<lastId>
 export const getFollowing = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -144,13 +176,34 @@ export const getFollowing = async (req, res) => {
       return res.status(400).json({ message: "Invalid user id" });
     }
 
-    const following = await Follow.find({ followerId: userId })
+    const { limit, cursor, cursorValid } = parsePagination(req.query);
+    if (!cursorValid) {
+      return res.status(400).json({ message: "Invalid cursor" });
+    }
+
+    const filter = { followerId: userId };
+    if (cursor) filter._id = { $lt: cursor };
+
+    const docs = await Follow.find(filter)
+      .sort({ _id: -1 })
+      .limit(limit + 1)
       .populate("followingId", "name username profileImage bio")
       .lean();
 
-    return res
-      .status(200)
-      .json({ success: true, count: following.length, following });
+    const hasMore = docs.length > limit;
+    const pageDocs = hasMore ? docs.slice(0, limit) : docs;
+    const nextCursor =
+      hasMore && pageDocs.length > 0 ? pageDocs[pageDocs.length - 1]._id : null;
+
+    const following = pageDocs.filter((f) => f.followingId);
+
+    return res.status(200).json({
+      success: true,
+      count: following.length,
+      following,
+      nextCursor,
+      hasMore,
+    });
   } catch (err) {
     console.error("Get following error:", err);
     return res.status(500).json({ message: "Server error" });

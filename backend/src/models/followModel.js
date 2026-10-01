@@ -14,10 +14,11 @@ const followSchema = new mongoose.Schema(
       required: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-followSchema.index({ followerId: 1, followingId: 1 }, { unique: true });
-// একই ফলো দুইবার হবে না
+followSchema.index({ followingId: 1, _id: -1 }); // getFollowers
+followSchema.index({ followerId: 1, _id: -1 }); // getFollowing
+followSchema.index({ followerId: 1, followingId: 1 }, { unique: true }); // duplicate follow ঠেকাতে
 
 export default mongoose.model("Follow", followSchema);
