@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import User from "../../models/usermodel.js";
 import Post from "../../models/postmodel.js";
-import Handout from "../../models/handoutmodel.js"; // তোমার handout model-এর path অনুযায়ী ঠিক করো
+import Handout from "../../models/handoutModel.js"; // তোমার handout model-এর path অনুযায়ী ঠিক করো
 
 const DEFAULT_LIMIT = 15;
 const MAX_LIMIT = 30;
