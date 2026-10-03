@@ -32,6 +32,7 @@ export const getUserById = async (req, res) => {
 };
 
 // ===================== GET USER BY USERNAME =====================
+// এই একটা রিকোয়েস্টেই profile + follow count + rating (activityStats) সব আসে
 export const getUserByUsername = async (req, res) => {
   try {
     const { username } = req.params;
@@ -43,9 +44,24 @@ export const getUserByUsername = async (req, res) => {
     const user = await User.findOne({
       username,
       accountStatus: { $nin: ["deleted", "banned", "deactivated"] },
-    }).select("-password");
+    })
+      .select("-password")
+      .lean();
 
     if (!user) return res.status(404).json({ message: "User not found" });
+
+    // activityStats এ যেন সবসময় সব field থাকে (পুরোনো ইউজারদের জন্য নিরাপদ)
+    user.activityStats = {
+      totalRating: 0,
+      averageRating: 0,
+      totalPosts: 0,
+      totalLikesGiven: 0,
+      totalLikesReceived: 0,
+      totalComments: 0,
+      totalFollowers: 0,
+      totalFollowing: 0,
+      ...(user.activityStats || {}),
+    };
 
     res.status(200).json(user);
   } catch (err) {
@@ -179,17 +195,20 @@ export const deleteUser = async (req, res) => {
 // ===================== SUGGESTED USERS (legacy — usersroute এ ব্যবহার হয়) =====================
 export const getSuggestedUsers = async (req, res) => {
   try {
-    const loggedUserId = req.user.id;
+    const loggedUserId = req.user?.id;
 
     if (!loggedUserId) {
       return res.status(401).json({ message: "Login required" });
     }
 
+    // ✅ ফিক্স: মডেলে field এর নাম followerId / followingId
     const followingList = await Follow.find({
-      follower: loggedUserId,
-    }).select("following");
+      followerId: loggedUserId,
+    }).select("followingId");
 
-    const followingIds = followingList.map((item) => item.following.toString());
+    const followingIds = followingList.map((item) =>
+      item.followingId.toString(),
+    );
     followingIds.push(loggedUserId);
 
     const suggestions = await User.find({

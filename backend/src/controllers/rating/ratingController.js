@@ -102,6 +102,7 @@ export const giveRating = async (req, res) => {
       userRating: existingRating.rating,
       averageRating,
       ratingCount,
+      answerUserId: answerUserId.toString(), // ✅ নতুন: profile cache invalidate এর জন্য
     });
   } catch (err) {
     if (err.code === 11000) {
@@ -193,9 +194,11 @@ export const deleteRating = async (req, res) => {
     // ✅ delete পরে sync — সব rating মুছে গেলে 0 হবে
     await syncUserRatingStats(rating.answerUserId);
 
-    return res
-      .status(200)
-      .json({ success: true, message: "Rating removed successfully" });
+    return res.status(200).json({
+      success: true,
+      message: "Rating removed successfully",
+      answerUserId: rating.answerUserId.toString(), // ✅ নতুন
+    });
   } catch (err) {
     console.error("deleteRating error:", err);
     return res.status(500).json({ message: "Server error" });
