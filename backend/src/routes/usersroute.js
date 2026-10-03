@@ -7,6 +7,7 @@ import {
   deleteUser,
   getSuggestedUsers,
   savePushToken,
+  removePushToken,
 } from "../controllers/usercontrol.js";
 import { protect } from "../middleware/auth.js";
 
@@ -25,6 +26,8 @@ router.put(
 ); // ✅ ইউজার তথ্য আপডেট করবে
 router.delete("/user/:userid", protect, deleteUser); // ✅ ইউজার ডিলিট করবে
 router.get("/suggested", protect, getSuggestedUsers); // ✅ ইউজার ডিলিট করবে
+
 router.post("/push-token", protect, savePushToken);
+router.delete("/push-token", protect, removePushToken);
 
 export default router;

@@ -232,16 +232,35 @@ export const getSuggestedUsers = async (req, res) => {
   }
 };
 
+// POST /api/users/push-token
 export const savePushToken = async (req, res) => {
   try {
     const { pushToken } = req.body;
-    if (!pushToken) {
-      return res.status(400).json({ message: "Push token required" });
+
+    if (!pushToken || !Expo.isExpoPushToken(pushToken)) {
+      return res.status(400).json({ message: "Invalid push token" });
     }
 
+    // ei token onno kono user-er kache thakle sorao (account switch case)
+    await User.updateMany(
+      { pushToken, _id: { $ne: req.user.id } },
+      { $unset: { pushToken: 1 } },
+    );
+
     await User.findByIdAndUpdate(req.user.id, { pushToken });
-    res.status(200).json({ message: "Push token saved" });
-  } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+
+    return res.status(200).json({ message: "Push token saved" });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+// DELETE /api/users/push-token  (logout-er somoy)
+export const removePushToken = async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.user.id, { $unset: { pushToken: 1 } });
+    return res.status(200).json({ message: "Push token removed" });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
   }
 };

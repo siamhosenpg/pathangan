@@ -11,7 +11,7 @@ const notificationSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["follow", "like", "comment", "share"], // "react" → "like"
+      enum: ["follow", "like", "comment", "reply", "rating", "share"],
       required: true,
     },
 
@@ -40,12 +40,9 @@ const notificationSchema = new mongoose.Schema(
       index: true,
     },
   },
-  {
-    timestamps: true, // createdAt, updatedAt auto
-  },
+  { timestamps: true },
 );
 
-// important indexes
 notificationSchema.index({ userId: 1, createdAt: -1 });
 
 export const Notification = mongoose.model("Notification", notificationSchema);

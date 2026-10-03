@@ -26,9 +26,49 @@ const getPushMessage = (type, actorName) => {
       title: "নতুন রেটিং",
       body: `${actorName} তোমার উত্তরে rating দিয়েছে`,
     },
+    share: {
+      title: "নতুন শেয়ার",
+      body: `${actorName} তোমার পোস্ট share করেছে`,
+    },
   };
 
   return messages[type] || { title: "নতুন নোটিফিকেশন", body: actorName };
+};
+
+// ===================== PUSH SENDER (internal) =====================
+const sendPushForNotification = async ({
+  userId,
+  actorId,
+  type,
+  postId,
+  commentId,
+}) => {
+  try {
+    const [recipient, actor] = await Promise.all([
+      User.findById(userId).select("pushToken").lean(),
+      User.findById(actorId).select("name profileImage").lean(),
+    ]);
+
+    if (!recipient?.pushToken || !actor?.name) return;
+
+    const { title, body } = getPushMessage(type, actor.name);
+
+    await sendPushNotification({
+      pushToken: recipient.pushToken,
+      title,
+      body,
+      imageUrl: actor.profileImage || null,
+      data: {
+        type,
+        postId: postId ? postId.toString() : "",
+        commentId: commentId ? commentId.toString() : "",
+        actorId: actorId.toString(),
+      },
+    });
+  } catch (pushErr) {
+    // push fail hole main flow atkabe na
+    console.error("Push notification error:", pushErr);
+  }
 };
 
 /**
@@ -67,35 +107,8 @@ export const createNotification = async ({
       target: { postId, commentId },
     });
 
-    // ===================== PUSH NOTIFICATION =====================
-    try {
-      // recipient এর pushToken + actor এর name একসাথে
-      const [recipient, actor] = await Promise.all([
-        User.findById(userId).select("pushToken").lean(),
-        User.findById(actorId).select("name profileImage").lean(),
-      ]);
-
-      if (recipient?.pushToken && actor?.name) {
-        const { title, body } = getPushMessage(type, actor.name);
-
-        await sendPushNotification({
-          pushToken: recipient.pushToken,
-          title,
-          body,
-          imageUrl: actor.profileImage || null,
-          data: {
-            type,
-            postId: postId?.toString() || null,
-            commentId: commentId?.toString() || null,
-            actorId: actorId?.toString(),
-          },
-        });
-      }
-    } catch (pushErr) {
-      // push fail হলে main notification flow আটকাবে না
-      console.error("Push notification error:", pushErr);
-    }
-    // =====================================================
+    // response-ke block na kore background-e push pathao
+    sendPushForNotification({ userId, actorId, type, postId, commentId });
   } catch (error) {
     console.error("createNotification error:", error);
   }
@@ -103,7 +116,6 @@ export const createNotification = async ({
 
 /**
  * GET /api/notifications
- * 🔔 Login user এর সব notification (cursor-based pagination)
  */
 export const getMyNotifications = async (req, res) => {
   try {
@@ -151,7 +163,6 @@ export const getMyNotifications = async (req, res) => {
 
 /**
  * PATCH /api/notifications/:id/read
- * 🔔 Single notification read mark
  */
 export const markAsRead = async (req, res) => {
   try {
@@ -184,7 +195,6 @@ export const markAsRead = async (req, res) => {
 
 /**
  * PATCH /api/notifications/read-all
- * 🔔 সব notification read mark
  */
 export const markAllAsRead = async (req, res) => {
   try {
@@ -204,7 +214,6 @@ export const markAllAsRead = async (req, res) => {
 
 /**
  * GET /api/notifications/unread-count
- * 🔔 Unread notification count
  */
 export const getUnreadNotificationCount = async (req, res) => {
   try {
@@ -222,7 +231,6 @@ export const getUnreadNotificationCount = async (req, res) => {
 
 /**
  * DELETE /api/notifications/:id
- * 🔔 Single notification delete
  */
 export const deleteNotification = async (req, res) => {
   try {
@@ -234,7 +242,6 @@ export const deleteNotification = async (req, res) => {
         .json({ success: false, message: "Invalid notification id" });
     }
 
-    // ownership check
     const notification = await Notification.findOneAndDelete({
       _id: id,
       userId: req.user.id,
@@ -256,8 +263,7 @@ export const deleteNotification = async (req, res) => {
 };
 
 /**
- * DELETE /api/notifications
- * 🔔 সব notification delete
+ * DELETE /api/notifications/delete-all
  */
 export const deleteAllNotifications = async (req, res) => {
   try {
