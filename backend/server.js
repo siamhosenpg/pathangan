@@ -96,10 +96,12 @@ app.use(cookieParser());
 // সাধারণ সব রুটের জন্য — ১৫ মিনিটে ২০০ রিকোয়েস্ট
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 200,
+  limit: process.env.NODE_ENV === "production" ? 1500 : 10000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: "Too many requests, please try again later." },
+  // CORS preflight request গুলো গণনায় ধরবে না
+  skip: (req) => req.method === "OPTIONS",
 });
 
 // শুধু login ও register এর জন্য — dev এ ১০০, production এ ১০
