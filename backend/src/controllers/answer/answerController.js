@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import Answer from "../../models/answer/answerModel.js";
 import Post from "../../models/postmodel.js";
 
+const POPULATE_USER = "name username profileImage badges";
+
 // ===================== CREATE ANSWER =====================
 export const createAnswer = async (req, res) => {
   try {
@@ -26,21 +28,23 @@ export const createAnswer = async (req, res) => {
     }
 
     const { text } = req.body;
+    const trimmed = text?.trim();
 
-    if (!text?.trim()) {
+    if (!trimmed) {
       return res.status(400).json({ message: "Answer text is required" });
     }
-    if (text.trim().length < 5) {
+    if (trimmed.length < 5) {
       return res
         .status(400)
         .json({ message: "Answer must be at least 5 characters" });
     }
-    if (text.trim().length > 10000) {
+    if (trimmed.length > 10000) {
       return res
         .status(400)
         .json({ message: "Answer cannot exceed 10000 characters" });
     }
 
+    // active (delete হয়নি) answer থাকলে নতুন দেওয়া যাবে না
     const existing = await Answer.findOne({
       questionId,
       userId,
@@ -52,12 +56,35 @@ export const createAnswer = async (req, res) => {
         .json({ message: "You have already answered this question" });
     }
 
-    const answer = await Answer.create({
+    // আগে delete করা answer থাকলে সেটাকেই নতুন করে চালু করা হবে
+    // (পুরনো unique index থাকলেও duplicate error আসবে না)
+    const deletedAnswer = await Answer.findOne({
       questionId,
       userId,
-      text: text.trim(),
-    });
-    await answer.populate("userId", "name username profileImage badges");
+      isDeleted: true,
+    }).sort({ updatedAt: -1 });
+
+    let answer;
+
+    if (deletedAnswer) {
+      deletedAnswer.text = trimmed;
+      deletedAnswer.isDeleted = false;
+      deletedAnswer.isBestAnswer = false;
+      deletedAnswer.upvotes = [];
+      deletedAnswer.downvotes = [];
+      deletedAnswer.upvotesCount = 0;
+      deletedAnswer.downvotesCount = 0;
+      await deletedAnswer.save();
+      answer = deletedAnswer;
+    } else {
+      answer = await Answer.create({
+        questionId,
+        userId,
+        text: trimmed,
+      });
+    }
+
+    await answer.populate("userId", POPULATE_USER);
 
     return res
       .status(201)
@@ -95,7 +122,7 @@ export const getAnswersByQuestion = async (req, res) => {
     if (cursor) matchQuery._id = { $lt: cursor };
 
     const answers = await Answer.find(matchQuery)
-      .populate("userId", "name username profileImage badges")
+      .populate("userId", POPULATE_USER)
       .sort({ isBestAnswer: -1, createdAt: -1 })
       .limit(limit + 1)
       .exec();
@@ -133,7 +160,7 @@ export const getAnswerById = async (req, res) => {
     const answer = await Answer.findOne({
       _id: answerId,
       isDeleted: false,
-    }).populate("userId", "name username profileImage badges");
+    }).populate("userId", POPULATE_USER);
 
     if (!answer) return res.status(404).json({ message: "Answer not found" });
 
@@ -166,24 +193,25 @@ export const updateAnswer = async (req, res) => {
     }
 
     const { text } = req.body;
+    const trimmed = text?.trim();
 
-    if (!text?.trim()) {
+    if (!trimmed) {
       return res.status(400).json({ message: "Answer text is required" });
     }
-    if (text.trim().length < 5) {
+    if (trimmed.length < 5) {
       return res
         .status(400)
         .json({ message: "Answer must be at least 5 characters" });
     }
-    if (text.trim().length > 10000) {
+    if (trimmed.length > 10000) {
       return res
         .status(400)
         .json({ message: "Answer cannot exceed 10000 characters" });
     }
 
-    answer.text = text.trim();
+    answer.text = trimmed;
     await answer.save();
-    await answer.populate("userId", "name username profileImage badges");
+    await answer.populate("userId", POPULATE_USER);
 
     return res
       .status(200)
@@ -216,6 +244,7 @@ export const deleteAnswer = async (req, res) => {
     }
 
     answer.isDeleted = true;
+    answer.isBestAnswer = false;
     await answer.save();
 
     return res
@@ -260,7 +289,7 @@ export const markBestAnswer = async (req, res) => {
 
     answer.isBestAnswer = true;
     await answer.save();
-    await answer.populate("userId", "name username profileImage badges");
+    await answer.populate("userId", POPULATE_USER);
 
     return res.status(200).json({
       success: true,

@@ -37,7 +37,8 @@ const answerSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// একই user একই question এ একবারই answer দিতে পারবে
+// একই user একই question এ একবারই (active) answer দিতে পারবে
+// deleted answer এই unique rule এর বাইরে
 answerSchema.index(
   { questionId: 1, userId: 1 },
   {
