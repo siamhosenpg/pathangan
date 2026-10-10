@@ -2,9 +2,20 @@ import mongoose from "mongoose";
 import Report from "../../models/others/reportModel.js";
 import Post from "../../models/postmodel.js";
 import User from "../../models/usermodel.js";
+import Handout from "../../models/handoutModel.js"; // তোমার path অনুযায়ী ঠিক করো
+import Chapter from "../../models/chapterModel.js"; // তোমার path অনুযায়ী ঠিক করো
 
 const AUTO_HIDE_THRESHOLD = 10;
 const AUTO_REVIEW_THRESHOLD = 5; // ৫টা report এ under_review তে যাবে
+
+const ALLOWED_TARGET_TYPES = [
+  "post",
+  "user",
+  "answer",
+  "comment",
+  "handout",
+  "chapter",
+];
 
 // ===================== HELPER: moderation history তে নতুন entry যোগ =====================
 const pushModerationHistory = (status, changedBy, reason, note = null) => ({
@@ -27,6 +38,10 @@ export const createReport = async (req, res) => {
 
     const { targetType, targetId, reason, description } = req.body;
 
+    if (!ALLOWED_TARGET_TYPES.includes(targetType)) {
+      return res.status(400).json({ message: "Invalid target type" });
+    }
+
     if (!mongoose.Types.ObjectId.isValid(targetId)) {
       return res.status(400).json({ message: "Invalid target id" });
     }
@@ -35,11 +50,45 @@ export const createReport = async (req, res) => {
       return res.status(400).json({ message: "You cannot report yourself" });
     }
 
+    // ===== handout / chapter: আগে exist করে কিনা + নিজের content কিনা check =====
+    if (targetType === "handout") {
+      const handout = await Handout.findOne({
+        _id: targetId,
+        isDeleted: false,
+      }).select("user");
+
+      if (!handout) {
+        return res.status(404).json({ message: "Handout not found" });
+      }
+      if (handout.user.toString() === reportedBy.toString()) {
+        return res
+          .status(400)
+          .json({ message: "You cannot report your own content" });
+      }
+    }
+
+    if (targetType === "chapter") {
+      const chapter = await Chapter.findOne({
+        _id: targetId,
+        isDeleted: false,
+      }).select("user");
+
+      if (!chapter) {
+        return res.status(404).json({ message: "Chapter not found" });
+      }
+      if (chapter.user.toString() === reportedBy.toString()) {
+        return res
+          .status(400)
+          .json({ message: "You cannot report your own content" });
+      }
+    }
+
     // report priority নির্ধারণ
     const highPriorityReasons = ["violence", "self_harm", "hate_speech"];
     const priority = highPriorityReasons.includes(reason) ? "high" : "low";
 
-    const report = await Report.create({
+    // duplicate হলে এখানেই 11000 error দিয়ে catch এ চলে যাবে
+    await Report.create({
       reportedBy,
       targetType,
       targetId,
@@ -94,6 +143,18 @@ export const createReport = async (req, res) => {
 
     if (targetType === "user") {
       await User.findByIdAndUpdate(targetId, {
+        $inc: { reportCount: 1 },
+      });
+    }
+
+    if (targetType === "handout") {
+      await Handout.findByIdAndUpdate(targetId, {
+        $inc: { reportCount: 1 },
+      });
+    }
+
+    if (targetType === "chapter") {
+      await Chapter.findByIdAndUpdate(targetId, {
         $inc: { reportCount: 1 },
       });
     }

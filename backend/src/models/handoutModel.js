@@ -79,6 +79,8 @@ const handoutSchema = new mongoose.Schema(
     savesCount: { type: Number, default: 0 },
     readCount: { type: Number, default: 0 },
 
+    reportCount: { type: Number, default: 0 },
+
     // ── সফট ডিলিট ──
     isDeleted: {
       type: Boolean,
