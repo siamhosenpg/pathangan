@@ -4,6 +4,8 @@ import Post from "../../models/postmodel.js";
 import User from "../../models/usermodel.js";
 import Handout from "../../models/handoutModel.js"; // তোমার path অনুযায়ী ঠিক করো
 import Chapter from "../../models/chapterModel.js"; // তোমার path অনুযায়ী ঠিক করো
+import Comment from "../../models/commentsModel.js";
+import Answer from "../../models/answer/answerModel.js"; // তোমার path অনুযায়ী ঠিক করো
 
 const AUTO_HIDE_THRESHOLD = 10;
 const AUTO_REVIEW_THRESHOLD = 5; // ৫টা report এ under_review তে যাবে
@@ -16,6 +18,14 @@ const ALLOWED_TARGET_TYPES = [
   "handout",
   "chapter",
 ];
+
+// যেসব type এ শুধু exist + owner check + reportCount বাড়ানো লাগে
+const CONTENT_TARGETS = {
+  handout: { model: Handout, ownerField: "user", filter: { isDeleted: false } },
+  chapter: { model: Chapter, ownerField: "user", filter: { isDeleted: false } },
+  comment: { model: Comment, ownerField: "commentUserId", filter: {} },
+  answer: { model: Answer, ownerField: "userId", filter: { isDeleted: false } },
+};
 
 // ===================== HELPER: moderation history তে নতুন entry যোগ =====================
 const pushModerationHistory = (status, changedBy, reason, note = null) => ({
@@ -50,33 +60,19 @@ export const createReport = async (req, res) => {
       return res.status(400).json({ message: "You cannot report yourself" });
     }
 
-    // ===== handout / chapter: আগে exist করে কিনা + নিজের content কিনা check =====
-    if (targetType === "handout") {
-      const handout = await Handout.findOne({
-        _id: targetId,
-        isDeleted: false,
-      }).select("user");
+    // ===== handout / chapter / comment / answer: exist করে কিনা + নিজের content কিনা =====
+    const config = CONTENT_TARGETS[targetType];
 
-      if (!handout) {
-        return res.status(404).json({ message: "Handout not found" });
-      }
-      if (handout.user.toString() === reportedBy.toString()) {
-        return res
-          .status(400)
-          .json({ message: "You cannot report your own content" });
-      }
-    }
+    if (config) {
+      const target = await config.model
+        .findOne({ _id: targetId, ...config.filter })
+        .select(config.ownerField);
 
-    if (targetType === "chapter") {
-      const chapter = await Chapter.findOne({
-        _id: targetId,
-        isDeleted: false,
-      }).select("user");
-
-      if (!chapter) {
-        return res.status(404).json({ message: "Chapter not found" });
+      if (!target) {
+        return res.status(404).json({ message: "Content not found" });
       }
-      if (chapter.user.toString() === reportedBy.toString()) {
+
+      if (target[config.ownerField]?.toString() === reportedBy.toString()) {
         return res
           .status(400)
           .json({ message: "You cannot report your own content" });
@@ -147,14 +143,9 @@ export const createReport = async (req, res) => {
       });
     }
 
-    if (targetType === "handout") {
-      await Handout.findByIdAndUpdate(targetId, {
-        $inc: { reportCount: 1 },
-      });
-    }
-
-    if (targetType === "chapter") {
-      await Chapter.findByIdAndUpdate(targetId, {
+    // handout / chapter / comment / answer এর reportCount
+    if (config) {
+      await config.model.findByIdAndUpdate(targetId, {
         $inc: { reportCount: 1 },
       });
     }

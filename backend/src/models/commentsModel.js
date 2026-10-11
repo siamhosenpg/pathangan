@@ -6,17 +6,30 @@ const commentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Post",
       required: true,
-      index: true, // 🔥 Searching comments by post → MUCH faster
+      index: true,
     },
 
     commentUserId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true, // 🔥 Filter by user → faster user profile load
+      index: true,
     },
 
-    parentCommentId: { type: mongoose.Schema.Types.ObjectId, ref: "Comment" },
+    // সবসময় মূল (root) comment এর id — reply এর reply হলেও root এরই থাকবে
+    parentCommentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Comment",
+      default: null,
+      index: true,
+    },
+
+    // reply টা আসলে কার উদ্দেশ্যে (@mention দেখানোর জন্য)
+    replyToUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
 
     text: {
       type: String,
@@ -26,7 +39,7 @@ const commentSchema = new mongoose.Schema(
 
     media: {
       url: {
-        type: [String], // string array
+        type: [String],
         default: [],
       },
       type: {
@@ -36,10 +49,13 @@ const commentSchema = new mongoose.Schema(
       },
     },
 
+    // report সংখ্যা
+    reportCount: { type: Number, default: 0 },
+
     createdAt: {
       type: Date,
       default: Date.now,
-      index: true, // 🔥 Comment sorting faster (newest first)
+      index: true,
     },
 
     updatedAt: {
@@ -50,11 +66,8 @@ const commentSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// 🔥 Compound Index (Most Important)
-// Find comments of a post + sorted by date = Ultra Fast
 commentSchema.index({ postId: 1, createdAt: -1 });
-
-// 🔥 Index for searching text (optional)
+commentSchema.index({ parentCommentId: 1, createdAt: 1 });
 commentSchema.index({ text: "text" });
 
 export default mongoose.model("Comment", commentSchema);

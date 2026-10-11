@@ -32,6 +32,7 @@ const answerSchema = new mongoose.Schema(
 
     isBestAnswer: { type: Boolean, default: false },
 
+    reportCount: { type: Number, default: 0 },
     isDeleted: { type: Boolean, default: false, index: true },
   },
   { timestamps: true },
