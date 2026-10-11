@@ -195,32 +195,54 @@ export const getCommentsByPost = async (req, res) => {
 };
 
 // ===============================
-// UPDATE COMMENT
+// UPDATE COMMENT (শুধু নিজের comment)
 // ===============================
 export const updateComment = async (req, res) => {
   try {
     const { commentId } = req.params;
     const { text } = req.body;
 
-    const comment = await Comment.findById(commentId);
-    if (!comment) {
-      return res.status(404).json({ message: "Comment not found" });
+    if (!isValidId(commentId)) {
+      return res.status(400).json({ message: "Invalid comment id" });
     }
 
-    if (String(comment.commentUserId) !== req.user.id) {
+    const newText = typeof text === "string" ? text.trim() : "";
+
+    if (!newText) {
+      return res.status(400).json({ message: "text is required" });
+    }
+
+    if (newText.length > 1000) {
       return res
-        .status(403)
-        .json({ message: "You are not allowed to edit this comment" });
+        .status(400)
+        .json({ message: "Comment cannot exceed 1000 characters" });
     }
 
-    comment.text = text?.trim() ?? comment.text;
-    comment.updatedAt = new Date();
-    await comment.save();
+    // owner না হলে এই query কিছুই খুঁজে পাবে না
+    const updated = await Comment.findOneAndUpdate(
+      { _id: commentId, commentUserId: req.user.id },
+      { $set: { text: newText, isEdited: true } },
+      { new: true, runValidators: true },
+    );
+
+    if (!updated) {
+      const exists = await Comment.exists({ _id: commentId });
+      return exists
+        ? res
+            .status(403)
+            .json({ message: "You are not allowed to edit this comment" })
+        : res.status(404).json({ message: "Comment not found" });
+    }
 
     res.status(200).json({
       success: true,
       message: "Comment updated successfully",
-      data: comment,
+      data: {
+        _id: updated._id,
+        text: updated.text,
+        isEdited: updated.isEdited,
+        updatedAt: updated.updatedAt,
+      },
     });
   } catch (error) {
     console.error("Error updating comment:", error);

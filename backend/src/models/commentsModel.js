@@ -51,6 +51,7 @@ const commentSchema = new mongoose.Schema(
 
     // report সংখ্যা
     reportCount: { type: Number, default: 0 },
+    isEdited: { type: Boolean, default: false },
 
     createdAt: {
       type: Date,
