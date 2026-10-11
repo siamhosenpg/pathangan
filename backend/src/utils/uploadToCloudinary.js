@@ -33,25 +33,25 @@ export const uploadMedia = async (file, options = {}) => {
       cloudinary.uploader
         .upload_stream({ folder, resource_type: "image" }, (err, result) => {
           if (err) reject(err);
-          // ✅ image — শুধু url return করো (আগের মতো)
+          // ✅ image — শুধু url return করো
           else resolve({ url: result.secure_url });
         })
         .end(buffer);
     });
   }
 
-  // 🎥 VIDEO
+  // 🎥 VIDEO / 🎵 AUDIO (Cloudinary তে অডিও ও "video" resource type এ থাকে)
   return new Promise((resolve, reject) => {
     cloudinary.uploader
       .upload_stream(
         {
           folder,
-          resource_type: "auto",
-          chunk_size: 6000000,
+          resource_type: "video",
+          timeout: 120000, // বড় ভিডিওর জন্য ২ মিনিট
         },
         (err, result) => {
           if (err) reject(err);
-          // ✅ video — url + width + height return করো
+          // ✅ video — url + width + height return করো (অডিওতে এগুলো null)
           else
             resolve({
               url: result.secure_url,
