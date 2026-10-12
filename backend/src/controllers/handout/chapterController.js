@@ -1,6 +1,8 @@
+import mongoose from "mongoose";
 import Chapter from "../../models/chapterModel.js";
 import Handout from "../../models/handoutModel.js";
 import { countWords, calcReadTime } from "../../utils/slugify.js";
+import { getBlockRelation } from "../../helpers/blockHelper.js";
 
 // ── Chapter যোগ করা ──
 export const addChapter = async (req, res) => {
@@ -146,6 +148,42 @@ export const deleteChapter = async (req, res) => {
 export const getChaptersByHandout = async (req, res) => {
   try {
     const { handoutId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(handoutId)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid handout id" });
+    }
+
+    const handout = await Handout.findOne({ _id: handoutId, isDeleted: false })
+      .select("user status")
+      .lean();
+
+    if (!handout) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Handout পাওয়া যায়নি" });
+    }
+
+    const viewerId = req.user?.id || null;
+    const isOwner = viewerId && viewerId === handout.user.toString();
+
+    // owner না হলে draft-এর chapter দেখা যাবে না
+    if (handout.status !== "published" && !isOwner) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Handout পাওয়া যায়নি" });
+    }
+
+    // ── Block check ──
+    if (viewerId && !isOwner) {
+      const relation = await getBlockRelation(viewerId, handout.user);
+      if (relation.any) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Handout পাওয়া যায়নি" });
+      }
+    }
 
     const chapters = await Chapter.find({
       handout: handoutId,

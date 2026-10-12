@@ -1,8 +1,12 @@
-import mongoose from "mongoose"; // আগের bug fix, ভুলে যেও না
+import mongoose from "mongoose";
 import { uploadMedia } from "../../utils/uploadToCloudinary.js";
 import Handout from "../../models/handoutModel.js";
 import Chapter from "../../models/chapterModel.js";
 import { generateSlug } from "../../utils/slugify.js";
+import {
+  getBlockedUserIds,
+  getBlockRelation,
+} from "../../helpers/blockHelper.js";
 
 // ── Price validate করার helper (create + update দুই জায়গায় ব্যবহার হবে) ──
 const validatePrice = (price) => {
@@ -176,6 +180,10 @@ export const getHandouts = async (req, res) => {
     const filter = { isDeleted: false, status: "published" };
     if (category) filter.category = category;
 
+    // ── Block: দুই দিকের blocked user-দের handout বাদ ──
+    const blockedIds = await getBlockedUserIds(req.user?.id);
+    if (blockedIds.length > 0) filter.user = { $nin: blockedIds };
+
     // ✅ pricing=free বা pricing=paid দিয়ে filter (optional query param)
     if (pricing === "free") filter.price = 0;
     if (pricing === "paid") filter.price = { $gt: 0 };
@@ -258,6 +266,16 @@ export const getHandoutBySlug = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "Handout পাওয়া যায়নি" });
+    }
+
+    // ── Block check: owner-এর সাথে block সম্পর্ক থাকলে 404 ──
+    if (req.user && !isOwner) {
+      const relation = await getBlockRelation(req.user.id, handout.user._id);
+      if (relation.any) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Handout পাওয়া যায়নি" });
+      }
     }
 
     const chapters = await Chapter.find({

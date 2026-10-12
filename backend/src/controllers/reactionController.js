@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Reaction from "../models/reactionModel.js";
 import Post from "../models/postmodel.js";
 import { Notification } from "../models/notification/notificationmodel.js";
@@ -6,6 +7,7 @@ import {
   createActivity,
   deleteActivity,
 } from "./activities/activitesController.js";
+import { getBlockedUserIds, getBlockRelation } from "../helpers/blockHelper.js"; // path মিলিয়ে নাও
 
 // ===================== TOGGLE LIKE =====================
 export const toggleReaction = async (req, res) => {
@@ -13,8 +15,8 @@ export const toggleReaction = async (req, res) => {
     const { postId } = req.body;
     const userId = req.user.id;
 
-    if (!postId) {
-      return res.status(400).json({ message: "postId is required" });
+    if (!postId || !mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(400).json({ message: "Valid postId is required" });
     }
 
     const post = await Post.findById(postId);
@@ -25,6 +27,7 @@ export const toggleReaction = async (req, res) => {
     const existing = await Reaction.findOne({ userId, postId });
 
     // ===================== UNLIKE =====================
+    // unlike সবসময় করতে দেওয়া হচ্ছে, block থাকলেও (আগের like সরানো যাবে)
     if (existing) {
       await Reaction.deleteOne({ _id: existing._id });
 
@@ -62,6 +65,12 @@ export const toggleReaction = async (req, res) => {
     }
 
     // ===================== LIKE =====================
+
+    // ── Block check: পোস্ট ওনারের সাথে block থাকলে like করা যাবে না ──
+    const relation = await getBlockRelation(userId, post.userid);
+    if (relation.any) {
+      return res.status(404).json({ message: "Post not found" });
+    }
 
     const actorId = userId;
 
@@ -121,7 +130,27 @@ export const getReactionsByPost = async (req, res) => {
   try {
     const { postId } = req.params;
 
-    const reactions = await Reaction.find({ postId })
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(400).json({ message: "Invalid post id" });
+    }
+
+    const blockedIds = await getBlockedUserIds(req.user?.id);
+
+    // পোস্ট ওনার blocked হলে পুরো পোস্টের likes লুকানো
+    if (blockedIds.length > 0) {
+      const post = await Post.findById(postId).select("userid").lean();
+      if (
+        post &&
+        blockedIds.some((b) => b.toString() === post.userid.toString())
+      ) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+    }
+
+    const reactions = await Reaction.find({
+      postId,
+      ...(blockedIds.length > 0 && { userId: { $nin: blockedIds } }),
+    })
       .populate("userId", "name username profileImage")
       .lean();
 

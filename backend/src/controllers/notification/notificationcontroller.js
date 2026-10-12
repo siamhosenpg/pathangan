@@ -2,6 +2,10 @@ import mongoose from "mongoose";
 import { Notification } from "../../models/notification/notificationmodel.js";
 import User from "../../models/usermodel.js";
 import { sendPushNotification } from "../../utils/sendPushNotification.js";
+import {
+  getBlockedUserIds,
+  getBlockRelation,
+} from "../../helpers/blockHelper.js";
 
 // ===================== PUSH MESSAGE MAP =====================
 const getPushMessage = (type, actorName) => {
@@ -84,6 +88,10 @@ export const createNotification = async ({
   try {
     if (userId.toString() === actorId.toString()) return;
 
+    // ── Block check: দুই জনের মধ্যে block থাকলে notification/push কিছুই যাবে না ──
+    const relation = await getBlockRelation(userId, actorId);
+    if (relation.any) return;
+
     const duplicateQuery = {
       userId,
       actorId,
@@ -123,6 +131,10 @@ export const getMyNotifications = async (req, res) => {
     const cursor = req.query.cursor;
 
     const query = { userId: req.user.id };
+
+    // block করা user-এর পুরনো notification-ও লুকানো
+    const blockedIds = await getBlockedUserIds(req.user.id);
+    if (blockedIds.length > 0) query.actorId = { $nin: blockedIds };
 
     if (cursor) {
       if (!mongoose.Types.ObjectId.isValid(cursor)) {
@@ -217,9 +229,13 @@ export const markAllAsRead = async (req, res) => {
  */
 export const getUnreadNotificationCount = async (req, res) => {
   try {
+    // লিস্টের সাথে মেলাতে blocked user-এর notification গোনা হচ্ছে না
+    const blockedIds = await getBlockedUserIds(req.user.id);
+
     const count = await Notification.countDocuments({
       userId: req.user.id,
       read: false,
+      ...(blockedIds.length > 0 && { actorId: { $nin: blockedIds } }),
     });
 
     return res.status(200).json({ success: true, count });

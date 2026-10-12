@@ -43,7 +43,7 @@ import activityRoutes from "./src/routes/acativity/acativityRoutes.js";
 import privateQuestionRoutes from "./src/routes/privateQuestionRoutes.js";
 import privateAnswerRoutes from "./src/routes/answer/privateAnswer.js";
 import { optionalAuth } from "./src/middleware/auth.js";
-
+import blockRoutes from "./src/routes/blockRoutes.js";
 import handoutRoutes from "./src/routes/handout/handoutRoutes.js";
 import chapterRoutes from "./src/routes/handout/chapterRoutes.js";
 
@@ -149,8 +149,10 @@ app.use("/conversations", conversationRoutes);
 app.use("/activities", activityRoutes);
 app.use("/private-questions", privateQuestionRoutes);
 app.use("/private-answers", privateAnswerRoutes);
+app.use("/blocks", blockRoutes);
 app.use("/handouts", handoutRoutes);
 app.use("/chapters", chapterRoutes);
+
 // ── ৭. টেস্ট ও মিসেলেনিয়াস রুট ──
 
 app.get("/", (req, res) => res.send("API is running..."));

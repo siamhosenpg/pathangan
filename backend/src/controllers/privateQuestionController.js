@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 import PrivateQuestion from "../models/PrivateQuestion.js";
+import User from "../models/usermodel.js";
+import { getBlockedUserIds, getBlockRelation } from "../helpers/blockHelper.js";
 
 // ===================== SEND PRIVATE QUESTION =====================
 export const sendPrivateQuestion = async (req, res) => {
@@ -22,13 +24,37 @@ export const sendPrivateQuestion = async (req, res) => {
       return res.status(400).json({ message: "questionText is required" });
     }
 
-    // নিজেকে নিজে question করা যাবে না
     if (req.user.id.toString() === receiverId.toString()) {
       return res.status(400).json({ message: "You cannot question yourself" });
     }
 
+    // receiver আছে কিনা
+    const receiver = await User.findOne({
+      _id: receiverId,
+      accountStatus: { $nin: ["deleted", "banned", "deactivated"] },
+    }).select("_id");
+
+    if (!receiver) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // ── Block check ──
+    const relation = await getBlockRelation(req.user.id, receiverId);
+
+    // সে আমাকে block করেছে → user নেই এমন ভান
+    if (relation.blockedMe) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // আমি তাকে block করেছি → আগে unblock করতে হবে
+    if (relation.blockedByMe) {
+      return res.status(403).json({
+        message: "You have blocked this user. Unblock to send a question.",
+      });
+    }
+
     const newQuestion = await PrivateQuestion.create({
-      senderId: req.user.id, // ✅ সবসময় backend থেকে
+      senderId: req.user.id,
       receiverId,
       questionText: questionText.trim(),
     });
@@ -39,7 +65,7 @@ export const sendPrivateQuestion = async (req, res) => {
   }
 };
 
-// ===================== GET INBOX (আমাকে যে questions করা হয়েছে) =====================
+// ===================== GET INBOX =====================
 export const getInbox = async (req, res) => {
   try {
     if (!req.user?.id) {
@@ -48,11 +74,14 @@ export const getInbox = async (req, res) => {
 
     const limit = parseInt(req.query.limit) || 10;
     const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
-    const status = req.query.status || null; // pending / answered / ignored
+    const status = req.query.status || null;
+
+    const blockedIds = await getBlockedUserIds(req.user.id);
 
     const query = { receiverId: req.user.id };
     if (cursor) query.createdAt = { $lt: cursor };
     if (status) query.status = status;
+    if (blockedIds.length > 0) query.senderId = { $nin: blockedIds };
 
     const questions = await PrivateQuestion.find(query)
       .populate("senderId", "name username profileImage")
@@ -73,7 +102,7 @@ export const getInbox = async (req, res) => {
   }
 };
 
-// ===================== GET SENT QUESTIONS (আমি যে questions করেছি) =====================
+// ===================== GET SENT QUESTIONS =====================
 export const getSentQuestions = async (req, res) => {
   try {
     if (!req.user?.id) {
@@ -83,8 +112,11 @@ export const getSentQuestions = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
+    const blockedIds = await getBlockedUserIds(req.user.id);
+
     const query = { senderId: req.user.id };
     if (cursor) query.createdAt = { $lt: cursor };
+    if (blockedIds.length > 0) query.receiverId = { $nin: blockedIds };
 
     const questions = await PrivateQuestion.find(query)
       .populate("receiverId", "name username profileImage")
@@ -123,18 +155,23 @@ export const getPrivateQuestionById = async (req, res) => {
       return res.status(404).json({ message: "Question not found" });
     }
 
-    // শুধু sender আর receiver দেখতে পারবে
     const userId = req.user.id.toString();
-    const isParticipant =
-      question.senderId._id.toString() === userId ||
-      question.receiverId._id.toString() === userId;
+    const senderId = question.senderId?._id?.toString();
+    const receiverId = question.receiverId?._id?.toString();
 
+    const isParticipant = senderId === userId || receiverId === userId;
     if (!isParticipant) {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    // receiver প্রথমবার দেখলে isRead = true
-    if (question.receiverId._id.toString() === userId && !question.isRead) {
+    // অন্য পক্ষের সাথে block থাকলে question লুকানো
+    const otherId = senderId === userId ? receiverId : senderId;
+    const relation = await getBlockRelation(userId, otherId);
+    if (relation.any) {
+      return res.status(404).json({ message: "Question not found" });
+    }
+
+    if (receiverId === userId && !question.isRead) {
       await PrivateQuestion.findByIdAndUpdate(id, { isRead: true });
     }
 
@@ -187,9 +224,12 @@ export const getUnreadCount = async (req, res) => {
       return res.status(401).json({ message: "Login required" });
     }
 
+    const blockedIds = await getBlockedUserIds(req.user.id);
+
     const count = await PrivateQuestion.countDocuments({
       receiverId: req.user.id,
       isRead: false,
+      ...(blockedIds.length > 0 && { senderId: { $nin: blockedIds } }),
     });
 
     res.status(200).json({ success: true, unreadCount: count });

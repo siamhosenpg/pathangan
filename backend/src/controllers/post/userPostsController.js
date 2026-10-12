@@ -4,6 +4,11 @@ import Reaction from "../../models/reactionModel.js";
 import Follow from "../../models/followModel.js";
 import { attachAnswerPreviews } from "../../helpers/attachAnswerPreviews.js";
 
+import {
+  getBlockRelation,
+  getBlockedUserIds,
+} from "../../helpers/blockHelper.js";
+
 // ===================== GET POSTS BY USERID (N+1 fixed) =====================
 export const getPostsByUserId = async (req, res) => {
   try {
@@ -11,6 +16,28 @@ export const getPostsByUserId = async (req, res) => {
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "Invalid user id" });
+    }
+
+    const currentUserId = req.user?.id || null;
+
+    // ── Block check ──
+    if (currentUserId && currentUserId.toString() !== userId.toString()) {
+      const relation = await getBlockRelation(currentUserId, userId);
+
+      // সে আমাকে block করেছে → যেন user-ই নেই
+      if (relation.blockedMe) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // আমি তাকে block করেছি → খালি list
+      if (relation.blockedByMe) {
+        return res.status(200).json({
+          posts: [],
+          count: 0,
+          nextCursor: null,
+          isBlockedByMe: true,
+        });
+      }
     }
 
     const limit = parseInt(req.query.limit) || 10;
@@ -35,8 +62,6 @@ export const getPostsByUserId = async (req, res) => {
 
     const hasMore = posts.length > limit;
     if (hasMore) posts.pop();
-
-    const currentUserId = req.user?.id || null;
 
     // ── Reaction merge ────────────────────────────────────
     let reactedSet = new Set();
@@ -73,7 +98,7 @@ export const getPostsByUserId = async (req, res) => {
       }
     }
 
-    // ── Final merge: isReacted + userid.isFollowing ────────
+    // ── Final merge ────────────────────────────────────────
     let finalPosts = posts.map((post) => {
       const merged = {
         ...post,
@@ -88,9 +113,8 @@ export const getPostsByUserId = async (req, res) => {
       return merged;
     });
 
-    // ── Answer preview merge — শুধু question type post এর জন্য (N+1 fix) ──
-    finalPosts = await attachAnswerPreviews(finalPosts);
-    // ─────────────────────────────────────────────────────
+    const blockedIds = await getBlockedUserIds(currentUserId);
+    finalPosts = await attachAnswerPreviews(finalPosts, blockedIds);
 
     return res.status(200).json({
       posts: finalPosts,

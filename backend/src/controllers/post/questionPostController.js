@@ -3,6 +3,10 @@ import Post from "../../models/postmodel.js";
 import Reaction from "../../models/reactionModel.js";
 import Follow from "../../models/followModel.js";
 import { attachAnswerPreviews } from "../../helpers/attachAnswerPreviews.js";
+import {
+  getBlockedUserIds,
+  getBlockRelation,
+} from "../../helpers/blockHelper.js"; // তোমার আসল path অনুযায়ী বদলাও
 
 const HIDDEN_STATUSES = ["deleted", "removed", "auto_hidden"];
 
@@ -11,12 +15,17 @@ export const getAllQuestions = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
     const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
+    const userId = req.user?.id || null;
+
+    // ── Block: দুই দিকের blocked user ID ──────────────────
+    const blockedIds = await getBlockedUserIds(userId);
 
     const query = {
       postType: "question",
       moderationStatus: { $nin: HIDDEN_STATUSES },
     };
     if (cursor) query.createdAt = { $lt: cursor };
+    if (blockedIds.length > 0) query.userid = { $nin: blockedIds };
 
     const questions = await Post.find(query)
       .populate("userid", "name username badges profileImage gender")
@@ -26,8 +35,6 @@ export const getAllQuestions = async (req, res) => {
 
     const hasMore = questions.length > limit;
     if (hasMore) questions.pop();
-
-    const userId = req.user?.id || null;
 
     // ── Reaction merge ────────────────────────────────────
     let reactedSet = new Set();
@@ -86,9 +93,8 @@ export const getAllQuestions = async (req, res) => {
       return merged;
     });
 
-    // ── Answer preview merge (N+1 fix) ─────────────────────
-    finalQuestions = await attachAnswerPreviews(finalQuestions);
-    // ──────────────────────────────────────────────────────
+    // ── Answer preview merge (blocked user-এর answer বাদ) ──
+    finalQuestions = await attachAnswerPreviews(finalQuestions, blockedIds);
 
     res.json({
       questions: finalQuestions,
@@ -112,6 +118,21 @@ export const getQuestionsByUserId = async (req, res) => {
 
     const limit = parseInt(req.query.limit) || 10;
     const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
+    const currentUserId = req.user?.id || null;
+
+    // ── Block: এই প্রোফাইল ওনারের সাথে block সম্পর্ক থাকলে খালি লিস্ট ──
+    const blockedIds = await getBlockedUserIds(currentUserId);
+
+    if (currentUserId) {
+      const relation = await getBlockRelation(currentUserId, userid);
+      if (relation.any) {
+        return res.status(200).json({
+          questions: [],
+          count: 0,
+          nextCursor: null,
+        });
+      }
+    }
 
     const query = {
       userid,
@@ -128,8 +149,6 @@ export const getQuestionsByUserId = async (req, res) => {
 
     const hasMore = questions.length > limit;
     if (hasMore) questions.pop();
-
-    const currentUserId = req.user?.id || null;
 
     // ── Reaction merge ────────────────────────────────────
     let reactedSet = new Set();
@@ -188,9 +207,8 @@ export const getQuestionsByUserId = async (req, res) => {
       return merged;
     });
 
-    // ── Answer preview merge (N+1 fix) ─────────────────────
-    finalQuestions = await attachAnswerPreviews(finalQuestions);
-    // ──────────────────────────────────────────────────────
+    // ── Answer preview merge ───────────────────────────────
+    finalQuestions = await attachAnswerPreviews(finalQuestions, blockedIds);
 
     return res.status(200).json({
       questions: finalQuestions,
@@ -220,9 +238,17 @@ export const getQuestionById = async (req, res) => {
     if (!question)
       return res.status(404).json({ message: "Question not found" });
 
+    const userId = req.user?.id || null;
+
+    // ── Block check: author-এর সাথে block সম্পর্ক থাকলে 404 ──
+    if (userId && question.userid?._id) {
+      const relation = await getBlockRelation(userId, question.userid._id);
+      if (relation.any) {
+        return res.status(404).json({ message: "Question not found" });
+      }
+    }
+
     // ── Soft-deleted check ─────────────────────────────────
-    // Post exist করে কিন্তু moderationStatus hidden হলে,
-    // 404 না দিয়ে আলাদাভাবে জানানো হচ্ছে যে পোস্টটি deleted
     if (HIDDEN_STATUSES.includes(question.moderationStatus)) {
       return res.status(200).json({
         isDeleted: true,
@@ -231,9 +257,6 @@ export const getQuestionById = async (req, res) => {
         _id: question._id,
       });
     }
-    // ────────────────────────────────────────────────────────
-
-    const userId = req.user?.id || null;
 
     // ── Reaction check ────────────────────────────────────
     let isReacted = false;
@@ -272,10 +295,13 @@ export const getQuestionById = async (req, res) => {
         : question.userid,
     };
 
-    // ── Answer preview merge (helper array নেয়, তাই wrap/unwrap করা হলো) ──
-    const [withPreview] = await attachAnswerPreviews([finalQuestion]);
+    // ── Answer preview merge (blocked user-এর answer বাদ) ──
+    const blockedIds = await getBlockedUserIds(userId);
+    const [withPreview] = await attachAnswerPreviews(
+      [finalQuestion],
+      blockedIds,
+    );
     finalQuestion = withPreview;
-    // ────────────────────────────────────────────────────────
 
     res.json(finalQuestion);
   } catch (err) {

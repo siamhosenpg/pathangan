@@ -1,5 +1,5 @@
 import express from "express";
-import { protect } from "../../middleware/auth.js";
+import { protect, optionalAuth } from "../../middleware/auth.js";
 import {
   addChapter,
   updateChapter,
@@ -11,7 +11,7 @@ import {
 const router = express.Router();
 
 router.post("/", protect, addChapter);
-router.get("/handout/:handoutId", getChaptersByHandout);
+router.get("/handout/:handoutId", optionalAuth, getChaptersByHandout);
 router.put("/:id", protect, updateChapter);
 router.delete("/:id", protect, deleteChapter);
 router.put("/reorder/:handoutId", protect, reorderChapters);

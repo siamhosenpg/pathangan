@@ -2,17 +2,26 @@ import Post from "../../models/postmodel.js";
 import Reaction from "../../models/reactionModel.js";
 import Follow from "../../models/followModel.js";
 import { attachAnswerPreviews } from "../../helpers/attachAnswerPreviews.js";
+import { getBlockedUserIds } from "../../helpers/blockHelper.js";
 
 // ===================== GET ALL POSTS (cursor-based, N+1 fixed) =====================
 export const getPosts = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
     const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
+    const userId = req.user?.id || null;
+
+    // ── Block filter: দুই দিকের blocked user ──
+    const blockedIds = await getBlockedUserIds(userId);
+    const blockedSet = new Set(blockedIds.map((id) => id.toString()));
+
     const query = {
       moderationStatus: { $nin: ["deleted", "removed", "auto_hidden"] },
       ...(cursor && { createdAt: { $lt: cursor } }),
+      ...(blockedIds.length > 0 && { userid: { $nin: blockedIds } }),
     };
-    const posts = await Post.find(query)
+
+    const rawPosts = await Post.find(query)
       .populate("userid", "name username greenmarkVerified profileImage gender")
       .populate({
         path: "content.parentPost",
@@ -25,10 +34,20 @@ export const getPosts = async (req, res) => {
       .limit(limit + 1)
       .lean();
 
-    const hasMore = posts.length > limit;
-    if (hasMore) posts.pop();
+    const hasMore = rawPosts.length > limit;
+    if (hasMore) rawPosts.pop();
 
-    const userId = req.user?.id || null;
+    // cursor সবসময় raw page-এর শেষ post থেকে (filter-এর আগে), যাতে pagination না ভাঙে
+    const nextCursor =
+      hasMore && rawPosts.length > 0
+        ? rawPosts[rawPosts.length - 1].createdAt
+        : null;
+
+    // share post-এর original author blocked হলে সেই post বাদ
+    const posts = rawPosts.filter((p) => {
+      const parentAuthorId = p.content?.parentPost?.userid?._id?.toString();
+      return !(parentAuthorId && blockedSet.has(parentAuthorId));
+    });
 
     // ── Reaction merge ────────────────────────────────────
     let reactedSet = new Set();
@@ -100,14 +119,10 @@ export const getPosts = async (req, res) => {
       return merged;
     });
 
-    // ── Answer preview merge — শুধু question type post এর জন্য (N+1 fix) ──
-    finalPosts = await attachAnswerPreviews(finalPosts);
-    // ─────────────────────────────────────────────────────
+    // ── Answer preview merge — শুধু question type post এর জন্য ──
+    finalPosts = await attachAnswerPreviews(finalPosts, blockedIds);
 
-    res.json({
-      posts: finalPosts,
-      nextCursor: hasMore ? finalPosts[finalPosts.length - 1].createdAt : null,
-    });
+    res.json({ posts: finalPosts, nextCursor });
   } catch (err) {
     console.error("Get posts error:", err);
     res.status(500).json({ message: err.message });

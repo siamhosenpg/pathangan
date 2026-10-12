@@ -1,6 +1,6 @@
 // routes/followRoutes.js
 import express from "express";
-import { protect } from "../middleware/auth.js";
+import { protect, optionalAuth } from "../middleware/auth.js";
 import {
   followUser,
   unfollowUser,
@@ -17,9 +17,10 @@ const router = express.Router();
 router.post("/follow/:userId", protect, followUser);
 router.delete("/unfollow/:userId", protect, unfollowUser);
 
-// 🔹 Get followers / following
-router.get("/followers/:userId", getFollowers); // public
-router.get("/following/:userId", getFollowing); // public
+// 🔹 Get followers / following (public, তবে logged-in হলে block filter চলবে)
+router.get("/followers/:userId", optionalAuth, getFollowers);
+router.get("/following/:userId", optionalAuth, getFollowing);
+
 // 🔹 Get followers / following count
 router.get("/followers/count/:userId", getFollowersCount); // public
 router.get("/following/count/:userId", getFollowingCount); // public

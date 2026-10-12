@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 import Answer from "../../models/answer/answerModel.js";
 import Post from "../../models/postmodel.js";
+import {
+  getBlockedUserIds,
+  getBlockRelation,
+} from "../../helpers/blockHelper.js";
 
 const POPULATE_USER = "name username profileImage badges";
 
@@ -22,6 +26,14 @@ export const createAnswer = async (req, res) => {
     });
 
     if (!questionPost) {
+      return res.status(404).json({
+        message: "Question not found or this post is not a question",
+      });
+    }
+
+    // ── Block check: প্রশ্নকারীর সাথে block থাকলে উত্তর দেওয়া যাবে না ──
+    const relation = await getBlockRelation(userId, questionPost.userid);
+    if (relation.any) {
       return res.status(404).json({
         message: "Question not found or this post is not a question",
       });
@@ -57,7 +69,6 @@ export const createAnswer = async (req, res) => {
     }
 
     // আগে delete করা answer থাকলে সেটাকেই নতুন করে চালু করা হবে
-    // (পুরনো unique index থাকলেও duplicate error আসবে না)
     const deletedAnswer = await Answer.findOne({
       questionId,
       userId,
@@ -114,9 +125,30 @@ export const getAnswersByQuestion = async (req, res) => {
       ? new mongoose.Types.ObjectId(req.query.cursor)
       : null;
 
+    // ── Block: viewer-এর সাথে দুই দিকের blocked user ──
+    const blockedIds = await getBlockedUserIds(req.user?.id);
+
+    // প্রশ্নকারী blocked হলে পুরো question লুকানো
+    if (blockedIds.length > 0) {
+      const questionPost = await Post.findById(questionId)
+        .select("userid")
+        .lean();
+
+      if (
+        questionPost &&
+        blockedIds.some((b) => b.toString() === questionPost.userid.toString())
+      ) {
+        return res.status(404).json({ message: "Question not found" });
+      }
+    }
+
+    const blockFilter =
+      blockedIds.length > 0 ? { userId: { $nin: blockedIds } } : {};
+
     const matchQuery = {
       questionId: new mongoose.Types.ObjectId(questionId),
       isDeleted: false,
+      ...blockFilter,
     };
 
     if (cursor) matchQuery._id = { $lt: cursor };
@@ -133,6 +165,7 @@ export const getAnswersByQuestion = async (req, res) => {
     const totalCount = await Answer.countDocuments({
       questionId,
       isDeleted: false,
+      ...blockFilter,
     });
 
     return res.status(200).json({
@@ -163,6 +196,15 @@ export const getAnswerById = async (req, res) => {
     }).populate("userId", POPULATE_USER);
 
     if (!answer) return res.status(404).json({ message: "Answer not found" });
+
+    // ── Block check ──
+    const viewerId = req.user?.id;
+    if (viewerId && answer.userId?._id) {
+      const relation = await getBlockRelation(viewerId, answer.userId._id);
+      if (relation.any) {
+        return res.status(404).json({ message: "Answer not found" });
+      }
+    }
 
     return res.status(200).json({ success: true, answer });
   } catch (err) {
@@ -282,6 +324,12 @@ export const markBestAnswer = async (req, res) => {
         .json({ message: "Only the question owner can mark a best answer" });
     }
 
+    // block থাকলে ওই user-এর answer best করা যাবে না
+    const relation = await getBlockRelation(userId, answer.userId);
+    if (relation.any) {
+      return res.status(404).json({ message: "Answer not found" });
+    }
+
     await Answer.updateMany(
       { questionId: answer.questionId, isBestAnswer: true },
       { isBestAnswer: false },
@@ -323,6 +371,12 @@ export const voteAnswer = async (req, res) => {
 
     const answer = await Answer.findOne({ _id: answerId, isDeleted: false });
     if (!answer) return res.status(404).json({ message: "Answer not found" });
+
+    // ── Block check: block থাকলে vote করা যাবে না ──
+    const relation = await getBlockRelation(userId, answer.userId);
+    if (relation.any) {
+      return res.status(404).json({ message: "Answer not found" });
+    }
 
     const userObjId = new mongoose.Types.ObjectId(userId);
 
@@ -381,26 +435,42 @@ export const getMyAnswers = async (req, res) => {
       ? new mongoose.Types.ObjectId(req.query.cursor)
       : null;
 
+    const blockedIds = await getBlockedUserIds(userId);
+    const blockedSet = new Set(blockedIds.map((b) => b.toString()));
+
     const matchQuery = { userId, isDeleted: false };
     if (cursor) matchQuery._id = { $lt: cursor };
 
-    const answers = await Answer.find(matchQuery)
+    const rawAnswers = await Answer.find(matchQuery)
       .populate({
         path: "questionId",
-        select: "question.questionText postType createdAt",
+        // userid লাগছে block filter-এর জন্য
+        select: "question.questionText postType createdAt userid",
       })
       .sort({ createdAt: -1 })
       .limit(limit + 1)
       .exec();
 
-    const hasMore = answers.length > limit;
-    if (hasMore) answers.pop();
+    const hasMore = rawAnswers.length > limit;
+    if (hasMore) rawAnswers.pop();
+
+    // pagination ভাঙা এড়াতে cursor raw page-এর শেষ থেকে নেওয়া হচ্ছে
+    const nextCursor =
+      hasMore && rawAnswers.length > 0
+        ? rawAnswers[rawAnswers.length - 1]._id
+        : null;
+
+    // প্রশ্নকারী blocked হলে সেই answer আমার list-এও দেখা যাবে না
+    const answers = rawAnswers.filter((a) => {
+      const authorId = a.questionId?.userid?.toString();
+      return !(authorId && blockedSet.has(authorId));
+    });
 
     return res.status(200).json({
       success: true,
       answers,
       hasMore,
-      nextCursor: hasMore ? answers[answers.length - 1]._id : null,
+      nextCursor,
     });
   } catch (err) {
     console.error("getMyAnswers error:", err);
@@ -417,7 +487,14 @@ export const getAnswerCount = async (req, res) => {
       return res.status(400).json({ message: "Invalid question ID" });
     }
 
-    const count = await Answer.countDocuments({ questionId, isDeleted: false });
+    // list-এর সাথে count মেলাতে blocked user-এর answer বাদ
+    const blockedIds = await getBlockedUserIds(req.user?.id);
+
+    const count = await Answer.countDocuments({
+      questionId,
+      isDeleted: false,
+      ...(blockedIds.length > 0 && { userId: { $nin: blockedIds } }),
+    });
 
     return res.status(200).json({ success: true, questionId, count });
   } catch (err) {

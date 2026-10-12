@@ -3,6 +3,7 @@ import User from "../models/usermodel.js";
 import mongoose from "mongoose";
 import { createNotification } from "../controllers/notification/notificationcontroller.js";
 import { Notification } from "../models/notification/notificationmodel.js";
+import { getBlockedUserIds, getBlockRelation } from "../helpers/blockHelper.js"; // path মিলিয়ে নাও
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
@@ -31,6 +32,12 @@ export const followUser = async (req, res) => {
 
     if (userId === followerId) {
       return res.status(400).json({ message: "You cannot follow yourself" });
+    }
+
+    // ── Block check: দুই দিকের যেকোনো block থাকলে follow করা যাবে না ──
+    const relation = await getBlockRelation(followerId, userId);
+    if (relation.any) {
+      return res.status(404).json({ message: "User not found" });
     }
 
     const existing = await Follow.findOne({ followerId, followingId: userId });
@@ -135,8 +142,23 @@ export const getFollowers = async (req, res) => {
       return res.status(400).json({ message: "Invalid cursor" });
     }
 
+    const blockedIds = await getBlockedUserIds(req.user?.id);
+
+    // প্রোফাইল ওনারের সাথে block সম্পর্ক থাকলে খালি লিস্ট
+    if (blockedIds.some((b) => b.toString() === userId)) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        followers: [],
+        nextCursor: null,
+        hasMore: false,
+      });
+    }
+
     const filter = { followingId: userId };
     if (cursor) filter._id = { $lt: cursor };
+    // blocked user-রা লিস্টে আসবে না (query-তেই বাদ, তাই pagination ঠিক থাকে)
+    if (blockedIds.length > 0) filter.followerId = { $nin: blockedIds };
 
     // limit + 1 anchi jate bujhte pari aro data ache kina
     const docs = await Follow.find(filter)
@@ -181,8 +203,21 @@ export const getFollowing = async (req, res) => {
       return res.status(400).json({ message: "Invalid cursor" });
     }
 
+    const blockedIds = await getBlockedUserIds(req.user?.id);
+
+    if (blockedIds.some((b) => b.toString() === userId)) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        following: [],
+        nextCursor: null,
+        hasMore: false,
+      });
+    }
+
     const filter = { followerId: userId };
     if (cursor) filter._id = { $lt: cursor };
+    if (blockedIds.length > 0) filter.followingId = { $nin: blockedIds };
 
     const docs = await Follow.find(filter)
       .sort({ _id: -1 })

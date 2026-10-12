@@ -9,12 +9,13 @@ import {
   savePushToken,
   removePushToken,
 } from "../controllers/usercontrol.js";
-import { protect } from "../middleware/auth.js";
+
+import { protect, optionalAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
-router.get("/user", getUsers); // ✅ সব ইউজার দেখাবে
-router.get("/user/:username", getUserByUsername); // ✅ নির্দিষ্ট ইউজার দেখাবে (id দিয়ে)
+router.get("/user", optionalAuth, getUsers);
+router.get("/user/:username", optionalAuth, getUserByUsername);
 router.put(
   "/user/:userid",
   protect,

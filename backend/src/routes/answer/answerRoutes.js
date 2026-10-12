@@ -1,5 +1,5 @@
 import express from "express";
-import { protect } from "../../middleware/auth.js";
+import { protect, optionalAuth } from "../../middleware/auth.js";
 import {
   createAnswer,
   getAnswersByQuestion,
@@ -10,14 +10,14 @@ import {
   voteAnswer,
   getMyAnswers,
   getAnswerCount,
-} from "../../controllers/answer/answerController.js ";
+} from "../../controllers/answer/answerController.js";
 
 const router = express.Router();
 
 router.get("/my", protect, getMyAnswers);
-router.get("/question/:questionId/count", getAnswerCount);
-router.get("/question/:questionId", getAnswersByQuestion);
-router.get("/:answerId", getAnswerById);
+router.get("/question/:questionId/count", optionalAuth, getAnswerCount);
+router.get("/question/:questionId", optionalAuth, getAnswersByQuestion);
+router.get("/:answerId", optionalAuth, getAnswerById);
 
 router.post("/question/:questionId", protect, createAnswer);
 

@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
 import User from "../../models/usermodel.js";
 import Post from "../../models/postmodel.js";
-import Handout from "../../models/handoutModel.js"; // তোমার handout model-এর path অনুযায়ী ঠিক করো
+import Handout from "../../models/handoutModel.js";
+import { getBlockedUserIds } from "../../helpers/blockHelper.js";
 
 const DEFAULT_LIMIT = 15;
 const MAX_LIMIT = 30;
@@ -11,7 +12,6 @@ const MAX_QUERY_LENGTH = 100;
 
 const VALID_TYPES = ["all", "users", "posts", "handouts"];
 
-// এই status-এর account/post সার্চে আসবে না
 const HIDDEN_ACCOUNT_STATUSES = [
   "suspended",
   "banned",
@@ -28,7 +28,6 @@ const HIDDEN_POST_STATUSES = [
 
 // ===================== HELPERS =====================
 
-// user-এর লেখা text-এ regex-এর special character থাকলে escape করো
 const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const buildWordRegexes = (query) =>
@@ -38,7 +37,6 @@ const buildWordRegexes = (query) =>
     .slice(0, MAX_WORDS)
     .map((word) => new RegExp(escapeRegex(word), "i"));
 
-// একটা field-এ সব word match করার condition
 const allWordsMatchField = (field, regexes) =>
   regexes.map((regex) => ({ [field]: { $regex: regex } }));
 
@@ -53,23 +51,23 @@ const parsePagination = (query) => {
   return { limit, cursor, cursorValid };
 };
 
-// ===================== FILTERS =====================
+// ===================== FILTERS (blockedIds সহ) =====================
 
-// user: name বা username-এ যেকোনো একটা word থাকলেই হবে
-const buildUserFilter = (regexes) => ({
+const buildUserFilter = (regexes, blockedIds) => ({
   deletedAt: null,
   accountStatus: { $nin: HIDDEN_ACCOUNT_STATUSES },
+  ...(blockedIds.length > 0 && { _id: { $nin: blockedIds } }),
   $or: regexes.flatMap((r) => [
     { name: { $regex: r } },
     { username: { $regex: r } },
   ]),
 });
 
-// post: soft delete / hidden / private বাদ, আর কোনো একটা field-এ সব word থাকতে হবে
-const buildPostFilter = (regexes) => ({
+const buildPostFilter = (regexes, blockedIds) => ({
   moderationStatus: { $nin: HIDDEN_POST_STATUSES },
   deletedAt: null,
   privacy: { $nin: ["private", "friends"] },
+  ...(blockedIds.length > 0 && { userid: { $nin: blockedIds } }),
   $or: [
     { $and: allWordsMatchField("content.title", regexes) },
     { $and: allWordsMatchField("content.text", regexes) },
@@ -79,10 +77,10 @@ const buildPostFilter = (regexes) => ({
   ],
 });
 
-// handout: soft delete বাদ, শুধু published
-const buildHandoutFilter = (regexes) => ({
+const buildHandoutFilter = (regexes, blockedIds) => ({
   isDeleted: false,
   status: "published",
+  ...(blockedIds.length > 0 && { user: { $nin: blockedIds } }),
   $or: [
     { $and: allWordsMatchField("title", regexes) },
     { $and: allWordsMatchField("description", regexes) },
@@ -120,9 +118,9 @@ const SEARCH_CONFIG = {
 
 // ===================== CORE: cursor pagination =====================
 
-const runPaginated = async (key, regexes, { limit, cursor }) => {
+const runPaginated = async (key, regexes, blockedIds, { limit, cursor }) => {
   const config = SEARCH_CONFIG[key];
-  const baseFilter = config.buildFilter(regexes);
+  const baseFilter = config.buildFilter(regexes, blockedIds);
 
   const filter = cursor
     ? {
@@ -136,7 +134,7 @@ const runPaginated = async (key, regexes, { limit, cursor }) => {
   let q = config.model
     .find(filter)
     .sort({ _id: -1 })
-    .limit(limit + 1) // একটা বেশি আনছি, আরও data আছে কিনা বোঝার জন্য
+    .limit(limit + 1)
     .select(config.select);
 
   if (config.populate) q = q.populate(...config.populate);
@@ -148,7 +146,6 @@ const runPaginated = async (key, regexes, { limit, cursor }) => {
   const nextCursor =
     hasMore && pageDocs.length > 0 ? pageDocs[pageDocs.length - 1]._id : null;
 
-  // owner delete হয়ে গেলে populate null হয়, সেগুলো বাদ
   const items = config.ownerField
     ? pageDocs.filter((d) => d[config.ownerField])
     : pageDocs;
@@ -179,11 +176,16 @@ export const globalSearch = async (req, res) => {
       });
     }
 
-    // ---------- ALL: প্রতিটার preview ----------
+    // একবারই blocked list আনা হচ্ছে (login না থাকলে খালি)
+    const blockedIds = await getBlockedUserIds(req.user?.id);
+
     if (type === "all") {
       const [users, posts, handouts] = await Promise.all(
         ["users", "posts", "handouts"].map((key) =>
-          runPaginated(key, regexes, { limit: PREVIEW_LIMIT, cursor: null }),
+          runPaginated(key, regexes, blockedIds, {
+            limit: PREVIEW_LIMIT,
+            cursor: null,
+          }),
         ),
       );
 
@@ -200,7 +202,6 @@ export const globalSearch = async (req, res) => {
       });
     }
 
-    // ---------- নির্দিষ্ট tab: infinite scroll ----------
     const { limit, cursor, cursorValid } = parsePagination(req.query);
     if (!cursorValid) {
       return res.status(400).json({
@@ -209,7 +210,10 @@ export const globalSearch = async (req, res) => {
       });
     }
 
-    const result = await runPaginated(type, regexes, { limit, cursor });
+    const result = await runPaginated(type, regexes, blockedIds, {
+      limit,
+      cursor,
+    });
 
     return res.status(200).json({
       success: true,

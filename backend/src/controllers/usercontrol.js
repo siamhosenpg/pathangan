@@ -1,12 +1,17 @@
 import User from "../models/usermodel.js";
 import bcrypt from "bcryptjs";
 import Follow from "../models/followModel.js";
+import { Expo } from "expo-server-sdk";
+import { getBlockedUserIds, getBlockRelation } from "../helpers/blockHelper.js";
 
 // ===================== GET ALL USERS =====================
 export const getUsers = async (req, res) => {
   try {
+    const blockedIds = await getBlockedUserIds(req.user?.id);
+
     const users = await User.find({
       accountStatus: { $nin: ["deleted", "banned", "deactivated"] },
+      ...(blockedIds.length > 0 && { _id: { $nin: blockedIds } }),
     }).select("-password");
     res.status(200).json(users);
   } catch (err) {
@@ -25,6 +30,26 @@ export const getUserById = async (req, res) => {
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    const myId = req.user?.id;
+    if (myId && myId.toString() !== user._id.toString()) {
+      const relation = await getBlockRelation(myId, user._id);
+
+      if (relation.blockedMe) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (relation.blockedByMe) {
+        return res.status(200).json({
+          _id: user._id,
+          userid: user.userid,
+          username: user.username,
+          name: user.name,
+          profileImage: user.profileImage,
+          isBlockedByMe: true,
+        });
+      }
+    }
+
     res.status(200).json(user);
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
@@ -32,7 +57,6 @@ export const getUserById = async (req, res) => {
 };
 
 // ===================== GET USER BY USERNAME =====================
-// এই একটা রিকোয়েস্টেই profile + follow count + rating (activityStats) সব আসে
 export const getUserByUsername = async (req, res) => {
   try {
     const { username } = req.params;
@@ -50,7 +74,28 @@ export const getUserByUsername = async (req, res) => {
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // activityStats এ যেন সবসময় সব field থাকে (পুরোনো ইউজারদের জন্য নিরাপদ)
+    const myId = req.user?.id;
+    if (myId && myId.toString() !== user._id.toString()) {
+      const relation = await getBlockRelation(myId, user._id);
+
+      // সে আমাকে block করেছে → 404 (block-এর তথ্য leak হবে না)
+      if (relation.blockedMe) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // আমি তাকে block করেছি → শুধু minimal info, যাতে Unblock বাটন দেখানো যায়
+      if (relation.blockedByMe) {
+        return res.status(200).json({
+          _id: user._id,
+          userid: user.userid,
+          username: user.username,
+          name: user.name,
+          profileImage: user.profileImage,
+          isBlockedByMe: true,
+        });
+      }
+    }
+
     user.activityStats = {
       totalRating: 0,
       averageRating: 0,
@@ -192,7 +237,7 @@ export const deleteUser = async (req, res) => {
   }
 };
 
-// ===================== SUGGESTED USERS (legacy — usersroute এ ব্যবহার হয়) =====================
+// ===================== SUGGESTED USERS =====================
 export const getSuggestedUsers = async (req, res) => {
   try {
     const loggedUserId = req.user?.id;
@@ -201,18 +246,19 @@ export const getSuggestedUsers = async (req, res) => {
       return res.status(401).json({ message: "Login required" });
     }
 
-    // ✅ ফিক্স: মডেলে field এর নাম followerId / followingId
     const followingList = await Follow.find({
       followerId: loggedUserId,
     }).select("followingId");
 
-    const followingIds = followingList.map((item) =>
-      item.followingId.toString(),
-    );
-    followingIds.push(loggedUserId);
+    const excludeIds = followingList.map((item) => item.followingId.toString());
+    excludeIds.push(loggedUserId.toString());
+
+    // block করা / আমাকে block করা user সাজেশন থেকে বাদ
+    const blockedIds = await getBlockedUserIds(loggedUserId);
+    blockedIds.forEach((id) => excludeIds.push(id.toString()));
 
     const suggestions = await User.find({
-      _id: { $nin: followingIds },
+      _id: { $nin: excludeIds },
       accountStatus: {
         $nin: ["deleted", "banned", "deactivated", "suspended"],
       },
@@ -231,7 +277,6 @@ export const getSuggestedUsers = async (req, res) => {
     });
   }
 };
-
 // POST /api/users/push-token
 export const savePushToken = async (req, res) => {
   try {

@@ -6,7 +6,7 @@ import {
   checkUserLiked,
 } from "../controllers/reactionController.js";
 
-import { protect } from "../middleware/auth.js";
+import { protect, optionalAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -14,7 +14,7 @@ const router = express.Router();
 router.post("/toggle", protect, toggleReaction);
 
 // 🟣 Get Likes of a Post
-router.get("/post/:postId", getReactionsByPost);
+router.get("/post/:postId", optionalAuth, getReactionsByPost);
 
 router.get("/check/:postId", protect, checkUserLiked);
 

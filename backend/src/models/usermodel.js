@@ -124,7 +124,6 @@ const UserSchema = new Schema(
     location: { type: String, trim: true },
     website: { type: String, trim: true },
     phone: { type: String, trim: true },
-    blockedUsers: [{ type: Number }],
 
     accountType: {
       type: String,

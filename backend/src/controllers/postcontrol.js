@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Post from "../models/postmodel.js";
 import Reaction from "../models/reactionModel.js";
 import { uploadMedia } from "../utils/uploadToCloudinary.js";
+import { getBlockedUserIds } from "../helpers/blockHelper.js";
 
 // ===================== GET SINGLE POST BY MONGODB _ID =====================
 export const getPostById = async (req, res) => {
@@ -14,7 +15,6 @@ export const getPostById = async (req, res) => {
 
     const post = await Post.findOne({
       _id: id,
-      // deleted বা removed post কেউ দেখতে পাবে না
       moderationStatus: { $nin: ["deleted", "removed"] },
     })
       .populate(
@@ -32,8 +32,25 @@ export const getPostById = async (req, res) => {
 
     if (!post) return res.status(404).json({ message: "Post not found" });
 
-    // ── Reaction check ────────────────────────────────────
     const userId = req.user?.id || null;
+
+    // ── Block check: post-এর author বা share-এর original author blocked হলে 404 ──
+    if (userId) {
+      const blockedIds = await getBlockedUserIds(userId);
+      const blockedSet = new Set(blockedIds.map((b) => b.toString()));
+
+      const authorId = post.userid?._id?.toString();
+      const parentAuthorId = post.content?.parentPost?.userid?._id?.toString();
+
+      if (
+        (authorId && blockedSet.has(authorId)) ||
+        (parentAuthorId && blockedSet.has(parentAuthorId))
+      ) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+    }
+
+    // ── Reaction check ────────────────────────────────────
     let isReacted = false;
 
     if (userId) {
@@ -271,6 +288,15 @@ export const createSharePost = async (req, res) => {
     });
 
     if (!originalPost) {
+      return res.status(404).json({ message: "Original post not found" });
+    }
+
+    // block থাকলে share করা যাবে না
+    const blockedIds = await getBlockedUserIds(req.user.id);
+    const isBlocked = blockedIds.some(
+      (b) => b.toString() === originalPost.userid.toString(),
+    );
+    if (isBlocked) {
       return res.status(404).json({ message: "Original post not found" });
     }
 

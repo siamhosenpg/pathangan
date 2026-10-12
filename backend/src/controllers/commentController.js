@@ -3,6 +3,7 @@ import Comment from "../models/commentsModel.js";
 import Post from "../models/postmodel.js";
 import { createNotification } from "./notification/notificationcontroller.js";
 import { Notification } from "../models/notification/notificationmodel.js";
+import { getBlockedUserIds, getBlockRelation } from "../helpers/blockHelper.js"; // path মিলিয়ে নাও
 
 const USER_FIELDS =
   "name userid profileImage gender username badges greenmarkVerified";
@@ -10,13 +11,17 @@ const MENTION_FIELDS = "name username";
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
+const isBlockedId = (blockedIds, id) =>
+  blockedIds.some((b) => b.toString() === String(id));
+
 // ===============================
-// HELPER — postType check
+// HELPER — postType check (allowed হলে post ফেরত দেয়, না হলে null)
 // ===============================
-const isAllowedPostType = async (postId) => {
-  const post = await Post.findById(postId).select("postType");
-  if (!post) return false;
-  return post.postType === "post" || post.postType === "course";
+const getAllowedPost = async (postId) => {
+  const post = await Post.findById(postId).select("postType userid");
+  if (!post) return null;
+  if (post.postType === "post" || post.postType === "course") return post;
+  return null;
 };
 
 // ===============================
@@ -25,10 +30,19 @@ const isAllowedPostType = async (postId) => {
 export const getCommentsCount = async (req, res) => {
   try {
     const { postId } = req.params;
+
+    if (!isValidId(postId)) {
+      return res.status(400).json({ message: "Invalid post id" });
+    }
+
+    const blockedIds = await getBlockedUserIds(req.user?.id);
+
     const count = await Comment.countDocuments({
       postId,
       parentCommentId: null,
+      ...(blockedIds.length > 0 && { commentUserId: { $nin: blockedIds } }),
     });
+
     res.status(200).json({ success: true, count });
   } catch (error) {
     res.status(500).json({ message: "Server error" });
@@ -50,11 +64,17 @@ export const createComment = async (req, res) => {
       return res.status(400).json({ message: "text is required" });
     }
 
-    const allowed = await isAllowedPostType(postId);
-    if (!allowed) {
+    const post = await getAllowedPost(postId);
+    if (!post) {
       return res.status(403).json({
         message: "Comments are only allowed on post and course type posts",
       });
+    }
+
+    // ── Block check: পোস্ট ওনারের সাথে block থাকলে comment করা যাবে না ──
+    const postRelation = await getBlockRelation(req.user.id, post.userid);
+    if (postRelation.any) {
+      return res.status(404).json({ message: "Post not found" });
     }
 
     // ===== reply হলে: সবসময় root comment এর নিচে বসাবো (২ লেভেল) =====
@@ -71,6 +91,15 @@ export const createComment = async (req, res) => {
       );
 
       if (!target || String(target.postId) !== String(postId)) {
+        return res.status(404).json({ message: "Parent comment not found" });
+      }
+
+      // ── Block check: যার কমেন্টে reply দিচ্ছি তার সাথে block থাকলে নয় ──
+      const targetRelation = await getBlockRelation(
+        req.user.id,
+        target.commentUserId,
+      );
+      if (targetRelation.any) {
         return res.status(404).json({ message: "Parent comment not found" });
       }
 
@@ -110,16 +139,13 @@ export const createComment = async (req, res) => {
           });
         }
       } else {
-        const post = await Post.findById(postId).select("userid");
-        if (post) {
-          await createNotification({
-            userId: post.userid,
-            actorId: req.user.id,
-            type: "comment",
-            postId,
-            commentId: newComment._id,
-          });
-        }
+        await createNotification({
+          userId: post.userid,
+          actorId: req.user.id,
+          type: "comment",
+          postId,
+          commentId: newComment._id,
+        });
       }
     } catch (err) {
       console.error("Comment notification error:", err);
@@ -144,32 +170,52 @@ export const getCommentsByPost = async (req, res) => {
   try {
     const { postId } = req.params;
 
-    const allowed = await isAllowedPostType(postId);
-    if (!allowed) {
+    if (!isValidId(postId)) {
+      return res.status(400).json({ message: "Invalid post id" });
+    }
+
+    const post = await getAllowedPost(postId);
+    if (!post) {
       return res.status(403).json({
         message: "Comments are only allowed on post and course type posts",
       });
     }
+
+    // ── Block: viewer-এর সাথে দুই দিকের blocked user ──
+    const blockedIds = await getBlockedUserIds(req.user?.id);
+
+    // পোস্ট ওনার blocked হলে পুরো পোস্ট লুকানো
+    if (isBlockedId(blockedIds, post.userid)) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    const blockFilter =
+      blockedIds.length > 0 ? { commentUserId: { $nin: blockedIds } } : {};
 
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
     const [comments, total] = await Promise.all([
-      Comment.find({ postId, parentCommentId: null })
+      Comment.find({ postId, parentCommentId: null, ...blockFilter })
         .populate("commentUserId", USER_FIELDS)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
-      Comment.countDocuments({ postId, parentCommentId: null }),
+      Comment.countDocuments({ postId, parentCommentId: null, ...blockFilter }),
     ]);
 
-    // এই page এর প্রতিটা comment এ কয়টা reply আছে
+    // এই page এর প্রতিটা comment এ কয়টা reply আছে (blocked user-এর reply বাদ)
     const ids = comments.map((c) => c._id);
     const counts = ids.length
       ? await Comment.aggregate([
-          { $match: { parentCommentId: { $in: ids } } },
+          {
+            $match: {
+              parentCommentId: { $in: ids },
+              ...blockFilter, // aggregate-এ ObjectId লাগে, blockedIds ObjectId-ই
+            },
+          },
           { $group: { _id: "$parentCommentId", count: { $sum: 1 } } },
         ])
       : [];
@@ -330,19 +376,35 @@ export const getRepliesByComment = async (req, res) => {
       return res.status(400).json({ message: "Invalid comment id" });
     }
 
+    const blockedIds = await getBlockedUserIds(req.user?.id);
+
+    // parent comment-এর লেখক blocked হলে তার replies-ও লুকানো
+    if (blockedIds.length > 0) {
+      const parent = await Comment.findById(commentId)
+        .select("commentUserId")
+        .lean();
+
+      if (parent && isBlockedId(blockedIds, parent.commentUserId)) {
+        return res.status(404).json({ message: "Comment not found" });
+      }
+    }
+
+    const blockFilter =
+      blockedIds.length > 0 ? { commentUserId: { $nin: blockedIds } } : {};
+
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
     const [replies, totalReplies] = await Promise.all([
-      Comment.find({ parentCommentId: commentId })
+      Comment.find({ parentCommentId: commentId, ...blockFilter })
         .populate("commentUserId", USER_FIELDS)
         .populate("replyToUserId", MENTION_FIELDS)
         .sort({ createdAt: 1 })
         .skip(skip)
         .limit(limit)
         .lean(),
-      Comment.countDocuments({ parentCommentId: commentId }),
+      Comment.countDocuments({ parentCommentId: commentId, ...blockFilter }),
     ]);
 
     res.status(200).json({
