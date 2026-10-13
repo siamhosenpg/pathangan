@@ -162,14 +162,18 @@ export async function getMe(req, res) {
 }
 
 // ===================== LOGOUT =====================
+
+// authController.js
 export async function logout(req, res) {
   try {
+    if (req.user?.id) {
+      await User.findByIdAndUpdate(req.user.id, { $unset: { pushToken: 1 } });
+    }
     res.cookie("token", "", {
       ...getCookieOptions(),
       expires: new Date(0),
       maxAge: undefined,
     });
-
     return res.status(200).json({ message: "Logout successful" });
   } catch (err) {
     console.error("Logout error:", err);

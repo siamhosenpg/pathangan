@@ -1,9 +1,12 @@
 import jwt from "jsonwebtoken";
 
+// মোবাইল অ্যাপ Bearer token পাঠায়, web cookie পাঠায়।
+// Bearer আগে চেক করা হচ্ছে, যাতে পুরনো user এর cookie থেকে গেলেও
+// নতুন user এর Bearer token-ই কাজ করে।
 const extractToken = (req) => {
-  if (req.cookies?.token) return req.cookies.token;
   const auth = req.headers.authorization;
   if (auth?.startsWith("Bearer ")) return auth.split(" ")[1];
+  if (req.cookies?.token) return req.cookies.token;
   return null;
 };
 
