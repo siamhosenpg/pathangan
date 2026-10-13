@@ -46,6 +46,7 @@ import { optionalAuth } from "./src/middleware/auth.js";
 import blockRoutes from "./src/routes/blockRoutes.js";
 import handoutRoutes from "./src/routes/handout/handoutRoutes.js";
 import chapterRoutes from "./src/routes/handout/chapterRoutes.js";
+import chapterRatingRoutes from "./src/routes/rating/chapterRatingRoutes.js";
 
 dotenv.config();
 
@@ -152,6 +153,7 @@ app.use("/private-answers", privateAnswerRoutes);
 app.use("/blocks", blockRoutes);
 app.use("/handouts", handoutRoutes);
 app.use("/chapters", chapterRoutes);
+app.use("/chapter-ratings", chapterRatingRoutes);
 
 // ── ৭. টেস্ট ও মিসেলেনিয়াস রুট ──
 

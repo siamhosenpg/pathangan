@@ -3,6 +3,7 @@ import Chapter from "../../models/chapterModel.js";
 import Handout from "../../models/handoutModel.js";
 import { countWords, calcReadTime } from "../../utils/slugify.js";
 import { getBlockRelation } from "../../helpers/blockHelper.js";
+import { syncHandoutRatingStats } from "../rating/chapterRatingController.js";
 
 // ── Chapter যোগ করা ──
 export const addChapter = async (req, res) => {
@@ -135,6 +136,9 @@ export const deleteChapter = async (req, res) => {
         },
       },
     );
+
+    // মুছে যাওয়া chapter এর rating বাদ দিয়ে handout এর average আবার হিসাব
+    await syncHandoutRatingStats(chapter.handout);
 
     return res
       .status(200)

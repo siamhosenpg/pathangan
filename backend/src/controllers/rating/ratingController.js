@@ -2,9 +2,11 @@ import mongoose from "mongoose";
 import Rating from "../../models/rating/ratingModel.js";
 import Answer from "../../models/answer/answerModel.js";
 import Post from "../../models/postmodel.js";
+import PrivateQuestion from "../../models/PrivateQuestion.js";
 import User from "../../models/usermodel.js";
 
 // ===================== helper: recalculate & save =====================
+// chapter rating এ answerUserId থাকে না, তাই এটা শুধু answer rating গোনে
 const syncUserRatingStats = async (answerUserId) => {
   const stats = await Rating.aggregate([
     { $match: { answerUserId: new mongoose.Types.ObjectId(answerUserId) } },
@@ -44,10 +46,15 @@ export const giveRating = async (req, res) => {
 
     const { rating } = req.body;
 
-    if (!rating || typeof rating !== "number" || rating < 1 || rating > 5) {
+    if (
+      typeof rating !== "number" ||
+      !Number.isInteger(rating) ||
+      rating < 1 ||
+      rating > 5
+    ) {
       return res
         .status(400)
-        .json({ message: "Rating must be a number between 1 and 5" });
+        .json({ message: "Rating must be a whole number between 1 and 5" });
     }
 
     const answer = await Answer.findOne({ _id: answerId, isDeleted: false });
@@ -56,23 +63,39 @@ export const giveRating = async (req, res) => {
     const questionId = answer.questionId;
     const answerUserId = answer.userId;
 
-    const questionPost = await Post.findOne({
-      _id: questionId,
-      postType: "question",
-    });
-    if (!questionPost)
-      return res.status(404).json({ message: "Question post not found" });
-
     if (answer.userId.toString() === userId.toString()) {
       return res
         .status(403)
         .json({ message: "You cannot rate your own answer" });
     }
 
+    // public question নাকি private question — দুটোর যেকোনো একটা হতে হবে
+    const questionPost = await Post.findOne({
+      _id: questionId,
+      postType: "question",
+    }).select("_id");
+
+    if (!questionPost) {
+      const privateQuestion = await PrivateQuestion.findById(questionId).select(
+        "senderId receiverId",
+      );
+
+      if (!privateQuestion) {
+        return res.status(404).json({ message: "Question not found" });
+      }
+
+      // private answer শুধু যে প্রশ্ন করেছে সে-ই rate করতে পারবে
+      if (privateQuestion.senderId.toString() !== userId.toString()) {
+        return res.status(403).json({
+          message: "Only the person who asked can rate a private answer",
+        });
+      }
+    }
+
     // ✅ upsert আগে — তারপর aggregate
     const existingRating = await Rating.findOneAndUpdate(
       { userId, answerId },
-      { rating, questionId, answerUserId },
+      { rating, questionId, answerUserId, targetType: "answer" },
       { new: true, upsert: true, runValidators: true },
     );
 
@@ -102,7 +125,7 @@ export const giveRating = async (req, res) => {
       userRating: existingRating.rating,
       averageRating,
       ratingCount,
-      answerUserId: answerUserId.toString(), // ✅ নতুন: profile cache invalidate এর জন্য
+      answerUserId: answerUserId.toString(), // profile cache invalidate এর জন্য
     });
   } catch (err) {
     if (err.code === 11000) {
@@ -147,7 +170,7 @@ export const getRatingsByAnswer = async (req, res) => {
   }
 };
 
-// ===================== GET MY RATING FOR AN ANSWER =====================
+// ===================== GET MY RATING FOR AN ANSWER (+ canRate) =====================
 export const getMyRating = async (req, res) => {
   try {
     const { answerId } = req.params;
@@ -159,11 +182,46 @@ export const getMyRating = async (req, res) => {
       return res.status(400).json({ message: "Invalid answer ID" });
     }
 
-    const rating = await Rating.findOne({ userId, answerId });
+    const rating = await Rating.findOne({ userId, answerId })
+      .select("rating")
+      .lean();
+
+    // ── canRate হিসাব: app এই flag দেখে stars দেখাবে/লুকাবে ──
+    let canRate = false;
+
+    const answer = await Answer.findOne({ _id: answerId, isDeleted: false })
+      .select("userId questionId")
+      .lean();
+
+    if (answer && answer.userId.toString() !== userId.toString()) {
+      // public question হলে যে কেউ (নিজের answer ছাড়া) rate করতে পারবে
+      const questionPost = await Post.findOne({
+        _id: answer.questionId,
+        postType: "question",
+      })
+        .select("_id")
+        .lean();
+
+      if (questionPost) {
+        canRate = true;
+      } else {
+        // private question হলে শুধু যে প্রশ্ন করেছে সে-ই পারবে
+        const privateQuestion = await PrivateQuestion.findById(
+          answer.questionId,
+        )
+          .select("senderId")
+          .lean();
+
+        canRate =
+          !!privateQuestion &&
+          privateQuestion.senderId.toString() === userId.toString();
+      }
+    }
 
     return res.status(200).json({
       success: true,
       userRating: rating ? rating.rating : null,
+      canRate,
     });
   } catch (err) {
     console.error("getMyRating error:", err);
@@ -197,7 +255,7 @@ export const deleteRating = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Rating removed successfully",
-      answerUserId: rating.answerUserId.toString(), // ✅ নতুন
+      answerUserId: rating.answerUserId.toString(),
     });
   } catch (err) {
     console.error("deleteRating error:", err);

@@ -70,7 +70,7 @@ const handoutSchema = new mongoose.Schema(
       default: null,
     },
 
-    // ── ডিনরমালাইজড কাউন্টার (আপনার existing pattern অনুযায়ী) ──
+    // ── ডিনরমালাইজড কাউন্টার ──
     chaptersCount: { type: Number, default: 0 },
     wordCount: { type: Number, default: 0 },
     estimatedReadTime: { type: Number, default: 0 }, // মিনিটে
@@ -78,6 +78,10 @@ const handoutSchema = new mongoose.Schema(
     commentsCount: { type: Number, default: 0 },
     savesCount: { type: Number, default: 0 },
     readCount: { type: Number, default: 0 },
+
+    // ── chapter rating গুলোর average (user profile এ count হয় না) ──
+    averageRating: { type: Number, default: 0 },
+    ratingCount: { type: Number, default: 0 },
 
     reportCount: { type: Number, default: 0 },
 
