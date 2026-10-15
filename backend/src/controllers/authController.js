@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import User from "../models/usermodel.js";
 import { generateToken } from "../utils/generateToken.js";
+import { TERMS_VERSION, hasAcceptedLatestTerms } from "../config/terms.js";
 
 const getCookieOptions = () => ({
   httpOnly: true,
@@ -10,15 +11,21 @@ const getCookieOptions = () => ({
   path: "/",
 });
 
-// ===================== REGISTER =====================
 export async function register(req, res) {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, termsAccepted } = req.body;
 
     if (!name || !email || !password) {
       return res
         .status(400)
         .json({ message: "Name, email and password are required" });
+    }
+
+    // ✅ শর্তে সম্মতি না দিলে account-ই খোলা যাবে না
+    if (termsAccepted !== true) {
+      return res
+        .status(400)
+        .json({ message: "অ্যাকাউন্ট খুলতে শর্তাবলীতে সম্মত হতে হবে" });
     }
 
     const emailLower = email.toLowerCase();
@@ -47,9 +54,13 @@ export async function register(req, res) {
       name,
       email: emailLower,
       password: hashed,
+      terms: {
+        accepted: true,
+        acceptedAt: new Date(),
+        version: TERMS_VERSION,
+      },
     });
 
-    // role সহ token তৈরি
     const token = generateToken({
       id: user._id,
       role: user.role,
@@ -68,6 +79,7 @@ export async function register(req, res) {
         email: user.email,
         role: user.role,
         greenmarkVerified: user.greenmarkVerified || false,
+        termsUpToDate: hasAcceptedLatestTerms(user),
       },
       message: "Registration successful",
     });
@@ -76,7 +88,6 @@ export async function register(req, res) {
     return res.status(500).json({ message: "Server error" });
   }
 }
-
 // ===================== LOGIN =====================
 export async function login(req, res) {
   try {
@@ -134,6 +145,7 @@ export async function login(req, res) {
         email: user.email,
         role: user.role,
         greenmarkVerified: user.greenmarkVerified || false,
+        termsUpToDate: hasAcceptedLatestTerms(user), // ✅ নতুন
       },
       message: "Login successful",
     });
@@ -154,7 +166,10 @@ export async function getMe(req, res) {
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    return res.status(200).json({ user });
+    const userObj = user.toObject();
+    userObj.termsUpToDate = hasAcceptedLatestTerms(user); // ✅ নতুন
+
+    return res.status(200).json({ user: userObj });
   } catch (err) {
     console.error("getMe error:", err);
     return res.status(500).json({ message: "Server error" });

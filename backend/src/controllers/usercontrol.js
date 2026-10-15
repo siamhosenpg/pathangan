@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import Follow from "../models/followModel.js";
 import { Expo } from "expo-server-sdk";
 import { getBlockedUserIds, getBlockRelation } from "../helpers/blockHelper.js";
+import { TERMS_VERSION } from "../config/terms.js";
 
 // ===================== GET ALL USERS =====================
 export const getUsers = async (req, res) => {
@@ -305,6 +306,29 @@ export const removePushToken = async (req, res) => {
   try {
     await User.findByIdAndUpdate(req.user.id, { $unset: { pushToken: 1 } });
     return res.status(200).json({ message: "Push token removed" });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+// POST /api/users/accept-terms
+export const acceptTerms = async (req, res) => {
+  try {
+    if (req.body?.agreed !== true) {
+      return res.status(400).json({ message: "সম্মতি প্রয়োজন" });
+    }
+
+    await User.findByIdAndUpdate(req.user.id, {
+      $set: {
+        terms: {
+          accepted: true,
+          acceptedAt: new Date(),
+          version: TERMS_VERSION,
+        },
+      },
+    });
+
+    return res.status(200).json({ message: "Terms accepted" });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

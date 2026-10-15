@@ -214,6 +214,14 @@ const UserSchema = new Schema(
       ref: "User",
       default: null,
     },
+
+    // ===================== TERMS & CONDITIONS =====================
+    terms: {
+      accepted: { type: Boolean, default: false },
+      acceptedAt: { type: Date, default: null },
+      version: { type: String, default: null },
+    },
+
     // UserSchema তে নতুন field
     pushToken: { type: String, default: null },
 

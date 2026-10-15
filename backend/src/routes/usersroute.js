@@ -8,6 +8,7 @@ import {
   getSuggestedUsers,
   savePushToken,
   removePushToken,
+  acceptTerms,
 } from "../controllers/usercontrol.js";
 
 import { protect, optionalAuth } from "../middleware/auth.js";
@@ -30,5 +31,6 @@ router.get("/suggested", protect, getSuggestedUsers); // ✅ ইউজার ড
 
 router.post("/push-token", protect, savePushToken);
 router.delete("/push-token", protect, removePushToken);
+router.post("/accept-terms", protect, acceptTerms);
 
 export default router;
