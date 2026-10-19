@@ -6,6 +6,7 @@ import Handout from "../../models/handoutModel.js"; // তোমার path অ�
 import Chapter from "../../models/chapterModel.js"; // তোমার path অনুযায়ী ঠিক করো
 import Comment from "../../models/commentsModel.js";
 import Answer from "../../models/answer/answerModel.js"; // তোমার path অনুযায়ী ঠিক করো
+import PrivateQuestion from "../../models/PrivateQuestion.js"; // তোমার path অনুযায়ী ঠিক করো
 
 const AUTO_HIDE_THRESHOLD = 10;
 const AUTO_REVIEW_THRESHOLD = 5; // ৫টা report এ under_review তে যাবে
@@ -17,6 +18,7 @@ const ALLOWED_TARGET_TYPES = [
   "comment",
   "handout",
   "chapter",
+  "private_question",
 ];
 
 // যেসব type এ শুধু exist + owner check + reportCount বাড়ানো লাগে
@@ -25,6 +27,11 @@ const CONTENT_TARGETS = {
   chapter: { model: Chapter, ownerField: "user", filter: { isDeleted: false } },
   comment: { model: Comment, ownerField: "commentUserId", filter: {} },
   answer: { model: Answer, ownerField: "userId", filter: { isDeleted: false } },
+  private_question: {
+    model: PrivateQuestion,
+    ownerField: "senderId",
+    filter: { isDeleted: false },
+  },
 };
 
 // ===================== HELPER: moderation history তে নতুন entry যোগ =====================
@@ -60,7 +67,40 @@ export const createReport = async (req, res) => {
       return res.status(400).json({ message: "You cannot report yourself" });
     }
 
-    // ===== handout / chapter / comment / answer: exist করে কিনা + নিজের content কিনা =====
+    // ===== private প্রশ্ন শুধু যে প্রশ্ন পেয়েছে (receiver) সে report করতে পারবে =====
+    if (targetType === "private_question") {
+      const pq = await PrivateQuestion.findOne({
+        _id: targetId,
+        isDeleted: false,
+      }).select("receiverId");
+
+      if (!pq || pq.receiverId.toString() !== reportedBy.toString()) {
+        return res.status(404).json({ message: "Content not found" });
+      }
+    }
+
+    // ===== private প্রশ্নের উত্তর শুধু যে প্রশ্ন করেছে (sender) সে report করতে পারবে =====
+    if (targetType === "answer") {
+      const ans = await Answer.findOne({
+        _id: targetId,
+        isDeleted: false,
+      }).select("questionId");
+
+      if (ans) {
+        const pq = await PrivateQuestion.findOne({
+          _id: ans.questionId,
+          isDeleted: false,
+        }).select("senderId");
+
+        // pq থাকা মানে এটা private উত্তর। public উত্তর হলে pq null, তাই এই check স্কিপ
+        if (pq && pq.senderId.toString() !== reportedBy.toString()) {
+          return res.status(404).json({ message: "Content not found" });
+        }
+      }
+    }
+
+    // ===== handout / chapter / comment / answer / private_question:
+    //       exist করে কিনা + নিজের content কিনা =====
     const config = CONTENT_TARGETS[targetType];
 
     if (config) {
@@ -143,7 +183,7 @@ export const createReport = async (req, res) => {
       });
     }
 
-    // handout / chapter / comment / answer এর reportCount
+    // handout / chapter / comment / answer / private_question এর reportCount
     if (config) {
       await config.model.findByIdAndUpdate(targetId, {
         $inc: { reportCount: 1 },

@@ -2,12 +2,11 @@ import mongoose from "mongoose";
 import Rating from "../../models/rating/ratingModel.js";
 import Answer from "../../models/answer/answerModel.js";
 import Post from "../../models/postmodel.js";
-import PrivateQuestion from "../../models/PrivateQuestion.js";
 import User from "../../models/usermodel.js";
 
 // ===================== helper: recalculate & save =====================
 // chapter rating এ answerUserId থাকে না, তাই এটা শুধু answer rating গোনে
-const syncUserRatingStats = async (answerUserId) => {
+export const syncUserRatingStats = async (answerUserId) => {
   const stats = await Rating.aggregate([
     { $match: { answerUserId: new mongoose.Types.ObjectId(answerUserId) } },
     {
@@ -69,27 +68,14 @@ export const giveRating = async (req, res) => {
         .json({ message: "You cannot rate your own answer" });
     }
 
-    // public question নাকি private question — দুটোর যেকোনো একটা হতে হবে
+    // শুধু public question এর উত্তরে rating চলবে। private প্রশ্নের উত্তরে না
     const questionPost = await Post.findOne({
       _id: questionId,
       postType: "question",
     }).select("_id");
 
     if (!questionPost) {
-      const privateQuestion = await PrivateQuestion.findById(questionId).select(
-        "senderId receiverId",
-      );
-
-      if (!privateQuestion) {
-        return res.status(404).json({ message: "Question not found" });
-      }
-
-      // private answer শুধু যে প্রশ্ন করেছে সে-ই rate করতে পারবে
-      if (privateQuestion.senderId.toString() !== userId.toString()) {
-        return res.status(403).json({
-          message: "Only the person who asked can rate a private answer",
-        });
-      }
+      return res.status(403).json({ message: "This answer cannot be rated" });
     }
 
     // ✅ upsert আগে — তারপর aggregate
@@ -186,7 +172,7 @@ export const getMyRating = async (req, res) => {
       .select("rating")
       .lean();
 
-    // ── canRate হিসাব: app এই flag দেখে stars দেখাবে/লুকাবে ──
+    // ── canRate: public question এর উত্তর এবং নিজের উত্তর না হলে true ──
     let canRate = false;
 
     const answer = await Answer.findOne({ _id: answerId, isDeleted: false })
@@ -194,7 +180,6 @@ export const getMyRating = async (req, res) => {
       .lean();
 
     if (answer && answer.userId.toString() !== userId.toString()) {
-      // public question হলে যে কেউ (নিজের answer ছাড়া) rate করতে পারবে
       const questionPost = await Post.findOne({
         _id: answer.questionId,
         postType: "question",
@@ -202,20 +187,7 @@ export const getMyRating = async (req, res) => {
         .select("_id")
         .lean();
 
-      if (questionPost) {
-        canRate = true;
-      } else {
-        // private question হলে শুধু যে প্রশ্ন করেছে সে-ই পারবে
-        const privateQuestion = await PrivateQuestion.findById(
-          answer.questionId,
-        )
-          .select("senderId")
-          .lean();
-
-        canRate =
-          !!privateQuestion &&
-          privateQuestion.senderId.toString() === userId.toString();
-      }
+      canRate = !!questionPost;
     }
 
     return res.status(200).json({

@@ -34,6 +34,16 @@ const answerSchema = new mongoose.Schema(
 
     reportCount: { type: Number, default: 0 },
     isDeleted: { type: Boolean, default: false, index: true },
+
+    // ── নতুন ──
+    isEdited: { type: Boolean, default: false },
+    editedAt: { type: Date, default: null },
+    deletedAt: { type: Date, default: null },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true },
 );

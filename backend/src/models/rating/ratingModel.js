@@ -67,12 +67,13 @@ ratingSchema.pre("validate", function (next) {
 });
 
 // একজন user একটা answer এ একবারই rate করতে পারবে
+// $type ব্যবহার করা হয়েছে যাতে null/missing answerId (chapter rating) index এ না ঢোকে
 ratingSchema.index(
   { userId: 1, answerId: 1 },
   {
     unique: true,
     name: "userId_answerId_unique",
-    partialFilterExpression: { answerId: { $exists: true } },
+    partialFilterExpression: { answerId: { $type: "objectId" } },
   },
 );
 
@@ -82,7 +83,7 @@ ratingSchema.index(
   {
     unique: true,
     name: "userId_chapterId_unique",
-    partialFilterExpression: { chapterId: { $exists: true } },
+    partialFilterExpression: { chapterId: { $type: "objectId" } },
   },
 );
 

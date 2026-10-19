@@ -3,24 +3,31 @@ import {
   sendPrivateQuestion,
   getInbox,
   getSentQuestions,
+  getPrivateQuestionPeople,
+  getQuestionsWithUser,
   getPrivateQuestionById,
+  editPrivateQuestion,
   updateQuestionStatus,
   getUnreadCount,
   deletePrivateQuestion,
 } from "../controllers/privateQuestionController.js";
-import { protect } from "../middleware/auth.js"; // তোর existing auth middleware
+import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// সব route-ই protected — login ছাড়া access নেই
 router.use(protect);
 
-router.post("/", sendPrivateQuestion); // question পাঠাও
-router.get("/inbox", getInbox); // আমার inbox
-router.get("/sent", getSentQuestions); // আমি যা পাঠিয়েছি
-router.get("/unread-count", getUnreadCount); // unread badge count
-router.get("/:id", getPrivateQuestionById); // single question
-router.patch("/:id/status", updateQuestionStatus); // status update
-router.delete("/:id", deletePrivateQuestion); // delete
+router.post("/", sendPrivateQuestion);
+router.get("/inbox", getInbox);
+router.get("/sent", getSentQuestions);
+router.get("/people", getPrivateQuestionPeople); // কার কার সাথে প্রশ্ন আছে
+router.get("/with/:userId", getQuestionsWithUser); // একজনের সাথে প্রশ্নগুলো
+router.get("/unread-count", getUnreadCount);
+
+// ⚠️ /:id সবসময় নিচে থাকবে
+router.get("/:id", getPrivateQuestionById);
+router.patch("/:id/status", updateQuestionStatus);
+router.patch("/:id", editPrivateQuestion);
+router.delete("/:id", deletePrivateQuestion);
 
 export default router;
