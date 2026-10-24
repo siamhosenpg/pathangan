@@ -1,9 +1,13 @@
 import mongoose from "mongoose";
 import Answer from "../models/answer/answerModel.js";
+import { getDeletedUserIds } from "./blockHelper.js";
+// ⚠️ পাথটা আপনার maskUser ফাইলের আসল জায়গা অনুযায়ী বদলান
+import { maskUser } from "./userMask.js";
 
 const PREVIEW_ANSWERS_LIMIT = 2;
 
 // blockedIds: viewer-এর সাথে block সম্পর্কিত user-দের ObjectId array
+// (ডিলিট ইউজারের ID থাকলেও এখানে বাদ দেওয়া হয়, কারণ তাদের answer থাকবে)
 export const attachAnswerPreviews = async (posts, blockedIds = []) => {
   if (posts.length === 0) return posts;
 
@@ -12,13 +16,19 @@ export const attachAnswerPreviews = async (posts, blockedIds = []) => {
 
   const questionIds = questionPosts.map((q) => q._id);
 
+  // ডিলিট ইউজারকে block তালিকা থেকে সরিয়ে শুধু আসল block রাখি
+  const deletedSet = new Set(await getDeletedUserIds());
+  const realBlockedIds = blockedIds.filter(
+    (id) => !deletedSet.has(id.toString()),
+  );
+
   const answerGroups = await Answer.aggregate([
     {
       $match: {
         questionId: { $in: questionIds },
         isDeleted: false,
         // aggregate-এ auto cast হয় না, তাই blockedIds অবশ্যই ObjectId হতে হবে
-        ...(blockedIds.length > 0 && { userId: { $nin: blockedIds } }),
+        ...(realBlockedIds.length > 0 && { userId: { $nin: realBlockedIds } }),
       },
     },
     { $sort: { isBestAnswer: -1, createdAt: -1 } },
@@ -54,7 +64,7 @@ export const attachAnswerPreviews = async (posts, blockedIds = []) => {
     const answerUsers = await User.find({
       _id: { $in: Array.from(allAnswerUserIds) },
     })
-      .select("name username profileImage badges")
+      .select("name username profileImage badges accountStatus")
       .lean();
 
     answerUsersMap = new Map(answerUsers.map((u) => [u._id.toString(), u]));
@@ -66,10 +76,14 @@ export const attachAnswerPreviews = async (posts, blockedIds = []) => {
     const group = answersByQuestionId.get(post._id.toString());
 
     const previewAnswers = group
-      ? group.answers.map((a) => ({
-          ...a,
-          userId: answerUsersMap.get(a.userId?.toString()) || a.userId,
-        }))
+      ? group.answers.map((a) => {
+          const author = answerUsersMap.get(a.userId?.toString());
+          return {
+            ...a,
+            // ডিলিট হলে বা একেবারে মুছে গেলে null → "ডিলিট হওয়া ইউজার"
+            userId: author ? maskUser(author) : null,
+          };
+        })
       : [];
 
     return {

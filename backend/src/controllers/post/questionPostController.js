@@ -3,10 +3,7 @@ import Post from "../../models/postmodel.js";
 import Reaction from "../../models/reactionModel.js";
 import Follow from "../../models/followModel.js";
 import { attachAnswerPreviews } from "../../helpers/attachAnswerPreviews.js";
-import {
-  getBlockedUserIds,
-  getBlockRelation,
-} from "../../helpers/blockHelper.js"; // তোমার আসল path অনুযায়ী বদলাও
+import { getBlockedUserIds } from "../../helpers/blockHelper.js"; // তোমার আসল path অনুযায়ী বদলাও
 
 const HIDDEN_STATUSES = ["deleted", "removed", "auto_hidden"];
 
@@ -120,18 +117,15 @@ export const getQuestionsByUserId = async (req, res) => {
     const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
     const currentUserId = req.user?.id || null;
 
-    // ── Block: এই প্রোফাইল ওনারের সাথে block সম্পর্ক থাকলে খালি লিস্ট ──
+    // ── Hidden: block সম্পর্ক বা ডিলিট হওয়া ইউজার হলে খালি লিস্ট ──
     const blockedIds = await getBlockedUserIds(currentUserId);
 
-    if (currentUserId) {
-      const relation = await getBlockRelation(currentUserId, userid);
-      if (relation.any) {
-        return res.status(200).json({
-          questions: [],
-          count: 0,
-          nextCursor: null,
-        });
-      }
+    if (blockedIds.some((id) => id.toString() === userid.toString())) {
+      return res.status(200).json({
+        questions: [],
+        count: 0,
+        nextCursor: null,
+      });
     }
 
     const query = {
@@ -240,12 +234,12 @@ export const getQuestionById = async (req, res) => {
 
     const userId = req.user?.id || null;
 
-    // ── Block check: author-এর সাথে block সম্পর্ক থাকলে 404 ──
-    if (userId && question.userid?._id) {
-      const relation = await getBlockRelation(userId, question.userid._id);
-      if (relation.any) {
-        return res.status(404).json({ message: "Question not found" });
-      }
+    // ── Hidden check: block সম্পর্ক বা ডিলিট হওয়া author হলে 404 ──
+    const blockedIds = await getBlockedUserIds(userId);
+    const authorId = question.userid?._id?.toString();
+
+    if (authorId && blockedIds.some((b) => b.toString() === authorId)) {
+      return res.status(404).json({ message: "Question not found" });
     }
 
     // ── Soft-deleted check ─────────────────────────────────
@@ -274,12 +268,12 @@ export const getQuestionById = async (req, res) => {
     let isFollowing = false;
 
     if (userId && question.userid?._id) {
-      const authorId = question.userid._id.toString();
+      const followedId = question.userid._id.toString();
 
-      if (authorId !== userId.toString()) {
+      if (followedId !== userId.toString()) {
         const followRecord = await Follow.findOne({
           followerId: userId,
-          followingId: authorId,
+          followingId: followedId,
         }).lean();
 
         isFollowing = !!followRecord;
@@ -295,8 +289,7 @@ export const getQuestionById = async (req, res) => {
         : question.userid,
     };
 
-    // ── Answer preview merge (blocked user-এর answer বাদ) ──
-    const blockedIds = await getBlockedUserIds(userId);
+    // ── Answer preview merge (blocked/ডিলিট user-এর answer বাদ) ──
     const [withPreview] = await attachAnswerPreviews(
       [finalQuestion],
       blockedIds,

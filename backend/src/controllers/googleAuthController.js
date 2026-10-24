@@ -1,5 +1,6 @@
 import { generateToken } from "../utils/generateToken.js";
 import User from "../models/usermodel.js";
+import { getAccountBlockMessage } from "../utils/accountMessages.js";
 
 const getCookieOptions = () => ({
   httpOnly: true,
@@ -17,6 +18,13 @@ export async function googleCallback(req, res) {
     if (!user) {
       return res.redirect(
         `${process.env.CLIENT_URL}/login?error=google_auth_failed`,
+      );
+    }
+
+    // ডিলিট / ব্যান হওয়া account এ web থেকেও login হবে না
+    if (!["active", "warned"].includes(user.accountStatus)) {
+      return res.redirect(
+        `${process.env.CLIENT_URL}/login?error=account_${user.accountStatus}`,
       );
     }
 
@@ -78,21 +86,9 @@ export async function googleMobileAuth(req, res) {
     let user = await User.findOne({ email: emailLower });
 
     if (user) {
-      // suspended / banned হলে login block (normal login এর মতোই)
+      // deleted / suspended / banned হলে login block (normal login এর মতোই)
       if (!["active", "warned"].includes(user.accountStatus)) {
-        const messages = {
-          suspended: `Account suspended until ${user.suspension?.expiresAt ? new Date(user.suspension.expiresAt).toLocaleDateString() : "further notice"}. Reason: ${user.suspension?.reason ?? "policy violation"}`,
-          banned: "Account permanently banned. Contact support.",
-          deactivated: "Account deactivated. Please reactivate to continue.",
-          deleted: "Account no longer exists.",
-          under_review: "Account is under review. Contact support.",
-        };
-
-        return res.status(403).json({
-          message:
-            messages[user.accountStatus] ??
-            `Account is ${user.accountStatus}. Contact support.`,
-        });
+        return res.status(403).json({ message: getAccountBlockMessage(user) });
       }
 
       // আগে থেকে আছে — googleId link করে দাও

@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { connectDB } from "./src/config/db.js";
+import { startAccountPurgeJob } from "./src/jobs/purgeDeletedAccounts.js";
 
 import passport from "./src/config/passport.js";
 import Post from "./src/models/postmodel.js";
@@ -205,6 +206,7 @@ app.use((err, req, res, next) => {
 // ── ৯. DB কানেক্ট করে সার্ভার চালু ──
 (async () => {
   await connectDB();
+  startAccountPurgeJob();
   app.listen(port, () =>
     console.log(`Server running http://localhost:${port}`),
   );

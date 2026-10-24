@@ -198,7 +198,11 @@ export const updateUser = async (req, res) => {
   }
 };
 
-// ===================== SOFT DELETE USER (owner নিজে) =====================
+// ===================== SOFT DELETE USER (owner নিজে, পাসওয়ার্ড দিয়ে) =====================
+// Body:
+//   - পাসওয়ার্ড আছে এমন account → { password }
+//   - শুধু Google দিয়ে খোলা account (পাসওয়ার্ড নেই) → { confirmText: "<নিজের username>" }
+// নোট: ভুল পাসওয়ার্ডে 401 দেওয়া যাবে না, কারণ app 401 পেলে user কে logout করে দেয়
 export const deleteUser = async (req, res) => {
   try {
     const userid = Number(req.params.userid);
@@ -207,21 +211,43 @@ export const deleteUser = async (req, res) => {
     const user = await User.findOne({
       userid,
       accountStatus: { $nin: ["deleted"] },
-    });
+    }).select("+password");
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // শুধু নিজের account delete করতে পারবে
+    // শুধু নিজের account delete করতে পারবে (admin ও অন্যের account পারবে না)
     if (user._id.toString() !== loggedInUserId) {
       return res
         .status(403)
         .json({ message: "You can only delete your own account" });
     }
 
+    // ── পরিচয় নিশ্চিত করা ──
+    if (user.password) {
+      const { password } = req.body || {};
+      if (!password) {
+        return res.status(400).json({ message: "পাসওয়ার্ড দিন" });
+      }
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(400).json({ message: "পাসওয়ার্ড ভুল হয়েছে" });
+      }
+    } else {
+      const { confirmText } = req.body || {};
+      if (!confirmText || confirmText.trim() !== user.username) {
+        return res
+          .status(400)
+          .json({ message: "নিশ্চিত করতে আপনার username সঠিকভাবে লিখুন" });
+      }
+    }
+
     await User.findByIdAndUpdate(user._id, {
-      accountStatus: "deleted",
-      deletedAt: new Date(),
-      deletedBy: user._id,
+      $set: {
+        accountStatus: "deleted",
+        deletedAt: new Date(),
+        deletedBy: user._id,
+      },
+      $unset: { pushToken: 1 }, // ডিলিট account এ আর notification যাবে না
       $push: {
         moderationHistory: {
           status: "deleted",
@@ -230,6 +256,14 @@ export const deleteUser = async (req, res) => {
           reason: "user_request",
         },
       },
+    });
+
+    // web এর cookie থাকলে মুছে দাও
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      path: "/",
     });
 
     res.status(200).json({ message: "Account deleted successfully" });
@@ -254,7 +288,7 @@ export const getSuggestedUsers = async (req, res) => {
     const excludeIds = followingList.map((item) => item.followingId.toString());
     excludeIds.push(loggedUserId.toString());
 
-    // block করা / আমাকে block করা user সাজেশন থেকে বাদ
+    // block করা / আমাকে block করা / ডিলিট হওয়া user সাজেশন থেকে বাদ
     const blockedIds = await getBlockedUserIds(loggedUserId);
     blockedIds.forEach((id) => excludeIds.push(id.toString()));
 
@@ -278,6 +312,7 @@ export const getSuggestedUsers = async (req, res) => {
     });
   }
 };
+
 // POST /api/users/push-token
 export const savePushToken = async (req, res) => {
   try {

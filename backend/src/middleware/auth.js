@@ -1,4 +1,8 @@
 import jwt from "jsonwebtoken";
+import User from "../models/usermodel.js";
+
+// এই status এর ইউজার পুরনো token দিয়েও API ব্যবহার করতে পারবে না
+const BLOCKED_STATUSES = ["deleted"];
 
 // মোবাইল অ্যাপ Bearer token পাঠায়, web cookie পাঠায়।
 // Bearer আগে চেক করা হচ্ছে, যাতে পুরনো user এর cookie থেকে গেলেও
@@ -10,7 +14,13 @@ const extractToken = (req) => {
   return null;
 };
 
-export function protect(req, res, next) {
+// token ঠিক থাকলেও ইউজার এখন ডিলিট অবস্থায় আছে কি না DB তে দেখা হয়
+const isBlockedAccount = async (userId) => {
+  const dbUser = await User.findById(userId).select("accountStatus").lean();
+  return !dbUser || BLOCKED_STATUSES.includes(dbUser.accountStatus);
+};
+
+export async function protect(req, res, next) {
   try {
     const token = extractToken(req);
     if (!token) {
@@ -18,6 +28,11 @@ export function protect(req, res, next) {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (await isBlockedAccount(decoded.id)) {
+      return res.status(401).json({ message: "Account no longer exists" });
+    }
+
     req.user = {
       id: decoded.id,
       role: decoded.role,
@@ -29,7 +44,7 @@ export function protect(req, res, next) {
   }
 }
 
-export function optionalAuth(req, res, next) {
+export async function optionalAuth(req, res, next) {
   try {
     const token = extractToken(req);
     if (!token) {
@@ -38,6 +53,12 @@ export function optionalAuth(req, res, next) {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (await isBlockedAccount(decoded.id)) {
+      req.user = null;
+      return next();
+    }
+
     req.user = {
       id: decoded.id,
       role: decoded.role,

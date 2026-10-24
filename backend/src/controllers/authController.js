@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import User from "../models/usermodel.js";
 import { generateToken } from "../utils/generateToken.js";
 import { TERMS_VERSION, hasAcceptedLatestTerms } from "../config/terms.js";
+import { getAccountBlockMessage } from "../utils/accountMessages.js";
 
 const getCookieOptions = () => ({
   httpOnly: true,
@@ -88,6 +89,7 @@ export async function register(req, res) {
     return res.status(500).json({ message: "Server error" });
   }
 }
+
 // ===================== LOGIN =====================
 export async function login(req, res) {
   try {
@@ -104,26 +106,20 @@ export async function login(req, res) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
+    // শুধু Google দিয়ে খোলা account এ password থাকে না
+    if (!user.password) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // suspended বা banned হলে login block
+    // deleted / suspended / banned হলে login block
+    // (পাসওয়ার্ড মিললে তবেই বার্তা দেখানো হয়, তাই অন্যের account এর অবস্থা জানা যাবে না)
     if (!["active", "warned"].includes(user.accountStatus)) {
-      const messages = {
-        suspended: `Account suspended until ${user.suspension?.expiresAt ? new Date(user.suspension.expiresAt).toLocaleDateString() : "further notice"}. Reason: ${user.suspension?.reason ?? "policy violation"}`,
-        banned: "Account permanently banned. Contact support.",
-        deactivated: "Account deactivated. Please reactivate to continue.",
-        deleted: "Account no longer exists.",
-        under_review: "Account is under review. Contact support.",
-      };
-
-      return res.status(403).json({
-        message:
-          messages[user.accountStatus] ??
-          `Account is ${user.accountStatus}. Contact support.`,
-      });
+      return res.status(403).json({ message: getAccountBlockMessage(user) });
     }
 
     // role সহ token তৈরি
@@ -145,7 +141,7 @@ export async function login(req, res) {
         email: user.email,
         role: user.role,
         greenmarkVerified: user.greenmarkVerified || false,
-        termsUpToDate: hasAcceptedLatestTerms(user), // ✅ নতুন
+        termsUpToDate: hasAcceptedLatestTerms(user),
       },
       message: "Login successful",
     });
@@ -155,7 +151,6 @@ export async function login(req, res) {
   }
 }
 
-// ===================== GET CURRENT USER =====================
 // ===================== GET CURRENT USER =====================
 export async function getMe(req, res) {
   try {
@@ -167,7 +162,7 @@ export async function getMe(req, res) {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const userObj = user.toObject();
-    userObj.termsUpToDate = hasAcceptedLatestTerms(user); // ✅ নতুন
+    userObj.termsUpToDate = hasAcceptedLatestTerms(user);
 
     return res.status(200).json({ user: userObj });
   } catch (err) {
@@ -177,8 +172,6 @@ export async function getMe(req, res) {
 }
 
 // ===================== LOGOUT =====================
-
-// authController.js
 export async function logout(req, res) {
   try {
     if (req.user?.id) {

@@ -34,20 +34,18 @@ export const getPostById = async (req, res) => {
 
     const userId = req.user?.id || null;
 
-    // ── Block check: post-এর author বা share-এর original author blocked হলে 404 ──
-    if (userId) {
-      const blockedIds = await getBlockedUserIds(userId);
-      const blockedSet = new Set(blockedIds.map((b) => b.toString()));
+    // ── Hidden check: blocked + ডিলিট হওয়া ইউজার (login না থাকলেও চেক হবে) ──
+    const blockedIds = await getBlockedUserIds(userId);
+    const blockedSet = new Set(blockedIds.map((b) => b.toString()));
 
-      const authorId = post.userid?._id?.toString();
-      const parentAuthorId = post.content?.parentPost?.userid?._id?.toString();
+    const authorId = post.userid?._id?.toString();
+    const parentAuthorId = post.content?.parentPost?.userid?._id?.toString();
 
-      if (
-        (authorId && blockedSet.has(authorId)) ||
-        (parentAuthorId && blockedSet.has(parentAuthorId))
-      ) {
-        return res.status(404).json({ message: "Post not found" });
-      }
+    if (
+      (authorId && blockedSet.has(authorId)) ||
+      (parentAuthorId && blockedSet.has(parentAuthorId))
+    ) {
+      return res.status(404).json({ message: "Post not found" });
     }
 
     // ── Reaction check ────────────────────────────────────

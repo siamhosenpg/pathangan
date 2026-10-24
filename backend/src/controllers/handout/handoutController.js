@@ -6,6 +6,7 @@ import { generateSlug } from "../../utils/slugify.js";
 import {
   getBlockedUserIds,
   getBlockRelation,
+  isUserDeleted,
 } from "../../helpers/blockHelper.js";
 
 // ── Price validate করার helper (create + update দুই জায়গায় ব্যবহার হবে) ──
@@ -255,6 +256,13 @@ export const getHandoutBySlug = async (req, res) => {
       .lean();
 
     if (!handout) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Handout পাওয়া যায়নি" });
+    }
+
+    // ── ডিলিট হওয়া ইউজারের handout কেউ দেখতে পারবে না (login না থাকলেও) ──
+    if (await isUserDeleted(handout.user?._id)) {
       return res
         .status(404)
         .json({ success: false, message: "Handout পাওয়া যায়নি" });

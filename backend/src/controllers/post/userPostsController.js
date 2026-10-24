@@ -7,6 +7,7 @@ import { attachAnswerPreviews } from "../../helpers/attachAnswerPreviews.js";
 import {
   getBlockRelation,
   getBlockedUserIds,
+  isUserDeleted,
 } from "../../helpers/blockHelper.js";
 
 // ===================== GET POSTS BY USERID (N+1 fixed) =====================
@@ -16,6 +17,11 @@ export const getPostsByUserId = async (req, res) => {
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "Invalid user id" });
+    }
+
+    // ── ডিলিট হওয়া ইউজারের পোস্ট কেউ দেখতে পারবে না (login না থাকলেও) ──
+    if (await isUserDeleted(userId)) {
+      return res.status(404).json({ message: "User not found" });
     }
 
     const currentUserId = req.user?.id || null;
