@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+
 const savedItemSchema = new mongoose.Schema(
   {
     collectionId: {
@@ -17,10 +18,16 @@ const savedItemSchema = new mongoose.Schema(
       required: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-// prevent same post duplicated inside same collection
+// একই পোস্ট একই কালেকশনে দুইবার সেভ হবে না
 savedItemSchema.index({ collectionId: 1, postId: 1 }, { unique: true });
+
+// কালেকশনের আইটেম নতুন থেকে পুরনো ক্রমে পেজ করার জন্য (infinite scroll)
+savedItemSchema.index({ collectionId: 1, userId: 1, _id: -1 });
+
+// একটা পোস্ট কোন কোন কালেকশনে সেভ আছে তা দ্রুত বের করার জন্য
+savedItemSchema.index({ userId: 1, postId: 1 });
 
 export default mongoose.model("SavedItem", savedItemSchema);

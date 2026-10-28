@@ -10,12 +10,8 @@ import { connectDB } from "./src/config/db.js";
 import { startAccountPurgeJob } from "./src/jobs/purgeDeletedAccounts.js";
 
 import passport from "./src/config/passport.js";
-import Post from "./src/models/postmodel.js";
 
 // dfadfadf
-import { runMigration } from "./src/scripts/runMigration.js";
-import { protect } from "./src/middleware/auth.js";
-import { adminOnly } from "./src/middleware/adminOnly.js";
 
 // রুট ইম্পোর্ট
 
@@ -38,8 +34,7 @@ import searchRoutes from "./src/routes/otherroutes/searchRoute.js";
 import videoPostRoutes from "./src/routes/post/videopostroute.js";
 import discoverRoutes from "./src/routes/post/discoverRoute.js";
 import peopleRoutes from "./src/routes/user/peopleRoutes.js";
-import messageRoutes from "./src/routes/message/messageRoutes.js";
-import conversationRoutes from "./src/routes/message/conversationRoutes.js";
+
 import activityRoutes from "./src/routes/acativity/acativityRoutes.js";
 import privateQuestionRoutes from "./src/routes/privateQuestionRoutes.js";
 import privateAnswerRoutes from "./src/routes/answer/privateAnswer.js";
@@ -146,8 +141,7 @@ app.use("/search", searchRoutes);
 app.use("/videos", videoPostRoutes);
 app.use("/discovers", discoverRoutes);
 app.use("/peoples", peopleRoutes);
-app.use("/messages", messageRoutes);
-app.use("/conversations", conversationRoutes);
+
 app.use("/activities", activityRoutes);
 app.use("/private-questions", privateQuestionRoutes);
 app.use("/private-answers", privateAnswerRoutes);
@@ -175,17 +169,6 @@ app.get("/test-env", (req, res) => {
   });
 });
 
-app.get("/fix-views", async (req, res) => {
-  const result = await Post.updateMany(
-    { viewsCount: { $exists: false } },
-    { $set: { viewsCount: 0 } },
-  );
-  res.json(result);
-});
-
-// অন্য routes এর সাথে:
-app.get("/run-migration", protect, adminOnly, runMigration);
-
 // ── ৮. ৪০৪ হ্যান্ডলার — সব রুটের একদম শেষে থাকবে ──
 app.use((req, res) => {
   res.status(404).json({
@@ -207,7 +190,5 @@ app.use((err, req, res, next) => {
 (async () => {
   await connectDB();
   startAccountPurgeJob();
-  app.listen(port, () =>
-    console.log(`Server running http://localhost:${port}`),
-  );
+  app.listen(port, () => console.log(`Server running on port ${port}`));
 })();

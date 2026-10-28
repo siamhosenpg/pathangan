@@ -1,5 +1,4 @@
 // routes/savesystem/savedItem.routes.js
-
 import express from "express";
 import { protect } from "../../middleware/auth.js";
 
@@ -12,24 +11,18 @@ import {
 
 const router = express.Router();
 
-// protect all routes
 router.use(protect);
 
-/*
-|--------------------------------------------------------------------------
-| ROUTES
-|--------------------------------------------------------------------------
-*/
-
+// পোস্টটা কোন কোন কালেকশনে সেভ আছে
 router.get("/check/:postId", checkIfSaved);
 
-// GET all items inside a folder
+// কালেকশনের আইটেম (infinite scroll)
 router.get("/item/:collectionId", getSavedItems);
 
-// Save new post to folder
+// কালেকশনে পোস্ট সেভ ("default" দিলে ডিফল্টে)
 router.post("/item/:collectionId", createSavedItem);
 
-// Delete a saved item
-router.delete("/item/delete/:postId", deleteSavedItem);
+// নির্দিষ্ট কালেকশন থেকে পোস্ট সরানো
+router.delete("/item/:collectionId/:postId", deleteSavedItem);
 
 export default router;
