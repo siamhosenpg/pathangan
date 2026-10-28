@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import SavedItem from "../../models/savesystem/savedItemSchema.js";
 import SavedCollection from "../../models/savesystem/savedCollectionSchema.js";
 import { getOrCreateDefaultCollection } from "./savedCollectionController.js";
+import Reaction from "../../models/reactionModel.js";
 
 const DEFAULT_PAGE_LIMIT = 10;
 const MAX_PAGE_LIMIT = 30;
@@ -105,6 +106,7 @@ export const getSavedItems = async (req, res) => {
   try {
     const { collectionId } = req.params;
     const { cursor } = req.query;
+    const userId = req.user.id;
 
     if (!isValidId(collectionId)) {
       return sendError(res, 400, "INVALID_ID", "Invalid collection id");
@@ -118,11 +120,9 @@ export const getSavedItems = async (req, res) => {
       MAX_PAGE_LIMIT,
     );
 
-    const query = { collectionId, userId: req.user.id };
-    // _id নতুন থেকে পুরনো ক্রমে সাজানো, তাই cursor এর চেয়ে ছোট _id গুলো পরের পেজ
+    const query = { collectionId, userId };
     if (cursor) query._id = { $lt: cursor };
 
-    // limit + 1 আনি, বাড়তি একটা থাকলে বুঝব আরো পেজ আছে
     const rows = await SavedItem.find(query)
       .sort({ _id: -1 })
       .limit(limit + 1)
@@ -140,10 +140,35 @@ export const getSavedItems = async (req, res) => {
     const page = hasMore ? rows.slice(0, limit) : rows;
     const nextCursor = hasMore ? String(page[page.length - 1]._id) : null;
 
-    // মূল পোস্ট ডিলিট হয়ে গেলে populate এর পর postId null আসে — সেগুলো বাদ
-    const items = page.filter((item) => item.postId);
+    // post ডিলিট (hard) হলে null, soft delete / removed হলে moderationStatus দেখে বাদ
+    const HIDDEN_STATUSES = ["deleted", "removed", "auto_hidden"];
+    const items = page.filter(
+      (item) =>
+        item.postId && !HIDDEN_STATUSES.includes(item.postId.moderationStatus),
+    );
 
-    return res.json({ items, nextCursor, hasMore });
+    // ── Reaction merge: এই পেজের সব post-এর isReacted একবারে বের করো ──
+    let reactedSet = new Set();
+    if (items.length > 0) {
+      const postIds = items.map((item) => item.postId._id);
+      const reactions = await Reaction.find({
+        userId,
+        postId: { $in: postIds },
+      })
+        .select("postId")
+        .lean();
+      reactedSet = new Set(reactions.map((r) => r.postId.toString()));
+    }
+
+    const itemsWithReaction = items.map((item) => ({
+      ...item,
+      postId: {
+        ...item.postId,
+        isReacted: reactedSet.has(item.postId._id.toString()),
+      },
+    }));
+
+    return res.json({ items: itemsWithReaction, nextCursor, hasMore });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
