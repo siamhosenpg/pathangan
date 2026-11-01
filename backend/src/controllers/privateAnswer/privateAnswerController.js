@@ -3,6 +3,13 @@ import Answer from "../../models/answer/answerModel.js";
 import PrivateQuestion from "../../models/PrivateQuestion.js";
 import { getBlockRelation } from "../../helpers/blockHelper.js";
 import { USER_SELECT, maskUser } from "../../helpers/userMask.js";
+import { checkBadText } from "../../helpers/moderation/badTextFilter.js";
+import { flagEntry } from "../../helpers/moderation/postModeration.js";
+import {
+  applyEditModeration,
+  moderateAnswerInBackground,
+  withAnswerNotice,
+} from "../../helpers/moderation/answerModeration.js";
 
 // Answer schema এর minlength 5 এর সাথে মিল রাখা হলো
 const MIN_ANSWER = 5;
@@ -19,8 +26,9 @@ const validateText = (text) => {
 };
 
 // answer এর populate করা user mask করে পাঠানো
-const shapeAnswer = (answerDoc) => {
-  const obj = answerDoc.toObject ? answerDoc.toObject() : answerDoc;
+// isOwner true হলে moderationNotice বসে, moderationHistory সবসময় সরে যায়
+const shapeAnswer = (answerDoc, isOwner = true) => {
+  const obj = withAnswerNotice(answerDoc, isOwner);
   return { ...obj, userId: maskUser(obj.userId) };
 };
 
@@ -74,6 +82,8 @@ export const createPrivateAnswer = async (req, res) => {
     const textError = validateText(text);
     if (textError) return res.status(400).json({ message: textError });
 
+    const trimmed = text.trim();
+
     // soft delete হওয়া উত্তর ধরা হবে না
     const existing = await Answer.findOne({
       questionId,
@@ -86,21 +96,40 @@ export const createPrivateAnswer = async (req, res) => {
         .json({ message: "You have already answered this question" });
     }
 
-    const answer = await Answer.create({
-      questionId,
-      userId,
-      text: text.trim(),
-    });
+    // ── ধাপ ১: Local filter (API call ছাড়া, তাৎক্ষণিক) ──
+    const local = checkBadText(trimmed);
+
+    const answerData = { questionId, userId, text: trimmed };
+
+    // Local filter কিছু পেলে সরাসরি auto_hidden, Gemini call হবে না
+    if (local.flagged) {
+      answerData.moderationStatus = "auto_hidden";
+      answerData.moderationHistory = [
+        flagEntry("local_filter", local.flagType),
+      ];
+    }
+
+    const answer = await Answer.create(answerData);
 
     await answer.populate("userId", `${USER_SELECT} badges`);
 
     privateQuestion.status = "answered";
     await privateQuestion.save();
 
+    // ── ধাপ ২: save-এর পরে background-এ Gemini দিয়ে যাচাই ──
+    if (!local.flagged) {
+      moderateAnswerInBackground(answer._id, trimmed);
+    }
+
     return res.status(201).json({
       success: true,
       message: "Answer posted successfully",
-      answer: shapeAnswer(answer),
+      answer: shapeAnswer(answer, true),
+      moderation: {
+        flagged: local.flagged,
+        flagType: local.flagType,
+        message: local.message,
+      },
     });
   } catch (err) {
     if (err.code === 11000) {
@@ -149,9 +178,23 @@ export const getPrivateAnswerByQuestion = async (req, res) => {
       .populate("userId", `${USER_SELECT} badges`)
       .lean();
 
+    if (!answer) {
+      return res.status(200).json({ success: true, answer: null });
+    }
+
+    // mask করার আগে বের করতে হবে, নাহলে _id হারিয়ে যেতে পারে
+    const isAuthor = answer.userId?._id?.toString() === userId.toString();
+
+    // hidden উত্তর শুধু যে দিয়েছে সে দেখবে, প্রশ্নকারী পাবে answerHidden
+    if (answer.moderationStatus === "auto_hidden" && !isAuthor) {
+      return res
+        .status(200)
+        .json({ success: true, answer: null, answerHidden: true });
+    }
+
     return res.status(200).json({
       success: true,
-      answer: answer ? { ...answer, userId: maskUser(answer.userId) } : null,
+      answer: shapeAnswer(answer, isAuthor),
     });
   } catch (err) {
     console.error("getPrivateAnswerByQuestion error:", err);
@@ -174,6 +217,8 @@ export const editPrivateAnswer = async (req, res) => {
     const { text } = req.body;
     const textError = validateText(text);
     if (textError) return res.status(400).json({ message: textError });
+
+    const trimmed = text.trim();
 
     const answer = await Answer.findOne({ _id: answerId, isDeleted: false });
     if (!answer) return res.status(404).json({ message: "Answer not found" });
@@ -198,23 +243,35 @@ export const editPrivateAnswer = async (req, res) => {
       return res.status(403).json({ message: "You cannot edit this answer" });
     }
 
-    if (answer.text === text.trim()) {
+    if (answer.text === trimmed) {
       await answer.populate("userId", `${USER_SELECT} badges`);
       return res
         .status(200)
-        .json({ success: true, answer: shapeAnswer(answer) });
+        .json({ success: true, answer: shapeAnswer(answer, true) });
     }
 
-    answer.text = text.trim();
+    // ── Moderation: text বদলেছে, তাই চেক ──
+    const { moderation, runBackground } = await applyEditModeration(
+      answer,
+      trimmed,
+    );
+
+    answer.text = trimmed;
     answer.isEdited = true;
     answer.editedAt = new Date();
     await answer.save();
     await answer.populate("userId", `${USER_SELECT} badges`);
 
+    // save-এর পরে background-এ যাচাই
+    if (runBackground) {
+      moderateAnswerInBackground(answer._id, trimmed);
+    }
+
     return res.status(200).json({
       success: true,
       message: "Answer updated",
-      answer: shapeAnswer(answer),
+      answer: shapeAnswer(answer, true),
+      moderation,
     });
   } catch (err) {
     console.error("editPrivateAnswer error:", err);

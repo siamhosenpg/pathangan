@@ -33,8 +33,6 @@ const courseSchema = new mongoose.Schema({
 // ===================== MAIN POST SCHEMA =====================
 const postSchema = new mongoose.Schema(
   {
-    // ❌ postid REMOVED (MongoDB _id will handle everything)
-
     userid: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
@@ -73,6 +71,10 @@ const postSchema = new mongoose.Schema(
         height: { type: Number },
       },
     },
+
+    // ===================== AI CATEGORIES =====================
+    // Gemini দিয়ে text থেকে বের করা category (text না থাকলে ["Normal Content"])
+    categories: [{ type: String, trim: true }],
 
     // ===================== QUESTION POST =====================
     question: questionSchema,
@@ -136,7 +138,6 @@ const postSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// 🔥 FIXED TEXT INDEX (caption ছিল ভুল)
 postSchema.index({
   "content.text": "text",
   "content.title": "text",
@@ -146,6 +147,9 @@ postSchema.index({
 // 🔥 High-Performance Compound Indexes for High Traffic (1,000+ Users)
 postSchema.index({ moderationStatus: 1, createdAt: -1 });
 postSchema.index({ userid: 1, createdAt: -1 });
+
+// category দিয়ে filter/search করার জন্য
+postSchema.index({ categories: 1 });
 
 const Post = mongoose.model("Post", postSchema);
 export default Post;

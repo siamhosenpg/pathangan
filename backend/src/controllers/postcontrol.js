@@ -3,7 +3,17 @@ import Post from "../models/postmodel.js";
 import Reaction from "../models/reactionModel.js";
 import { uploadMedia } from "../utils/uploadToCloudinary.js";
 import { getBlockedUserIds } from "../helpers/blockHelper.js";
-
+import { checkBadText } from "../helpers/moderation/badTextFilter.js";
+import { buildModerationNotice } from "../helpers/moderation/moderationNotice.js";
+import {
+  DEFAULT_CATEGORIES,
+  categorizePost,
+  categorizeInBackground,
+  getTextForAnalysis,
+  isAutoFlagged,
+  flagEntry,
+} from "../helpers/moderation/postModeration.js";
+// ===================== GET SINGLE POST BY MONGODB _ID =====================
 // ===================== GET SINGLE POST BY MONGODB _ID =====================
 export const getPostById = async (req, res) => {
   try {
@@ -33,12 +43,20 @@ export const getPostById = async (req, res) => {
     if (!post) return res.status(404).json({ message: "Post not found" });
 
     const userId = req.user?.id || null;
+    const isAdmin = req.user?.role === "admin";
+
+    const authorId = post.userid?._id?.toString();
+    const isOwner = !!userId && authorId === userId.toString();
+
+    // ── auto_hidden: শুধু মালিক বা admin দেখতে পারবে ──
+    if (post.moderationStatus === "auto_hidden" && !isOwner && !isAdmin) {
+      return res.status(404).json({ message: "Post not found" });
+    }
 
     // ── Hidden check: blocked + ডিলিট হওয়া ইউজার (login না থাকলেও চেক হবে) ──
     const blockedIds = await getBlockedUserIds(userId);
     const blockedSet = new Set(blockedIds.map((b) => b.toString()));
 
-    const authorId = post.userid?._id?.toString();
     const parentAuthorId = post.content?.parentPost?.userid?._id?.toString();
 
     if (
@@ -46,6 +64,18 @@ export const getPostById = async (req, res) => {
       (parentAuthorId && blockedSet.has(parentAuthorId))
     ) {
       return res.status(404).json({ message: "Post not found" });
+    }
+
+    // ── Share post-এর আসল post hidden/deleted হলে তার লেখা দেখানো হবে না ──
+    const parent = post.content?.parentPost;
+    if (
+      parent &&
+      ["auto_hidden", "deleted", "removed"].includes(parent.moderationStatus)
+    ) {
+      const isParentOwner = !!userId && parentAuthorId === userId.toString();
+      if (!isParentOwner && !isAdmin) {
+        post.content.parentPost = null;
+      }
     }
 
     // ── Reaction check ────────────────────────────────────
@@ -59,12 +89,20 @@ export const getPostById = async (req, res) => {
       isReacted = !!reaction;
     }
 
-    res.json({ ...post, isReacted });
+    // ── মালিক হলে moderation বার্তা ──
+    const moderationNotice = isOwner ? buildModerationNotice(post) : null;
+
+    // moderationHistory শুধু admin দেখতে পাবে
+    if (!isAdmin) delete post.moderationHistory;
+
+    res.json({ ...post, isReacted, moderationNotice });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
+// ===================== CREATE NORMAL POST =====================
+// ===================== CREATE NORMAL POST =====================
 // ===================== CREATE NORMAL POST =====================
 export const createPost = async (req, res) => {
   try {
@@ -128,7 +166,14 @@ export const createPost = async (req, res) => {
       }
     }
 
-    const newPost = await Post.create({
+    // ── ধাপ ১: Local filter (API call ছাড়া, তাৎক্ষণিক) ──
+    const textForAnalysis = [title, text]
+      .filter((t) => typeof t === "string" && t.trim())
+      .join("\n");
+
+    const local = checkBadText(textForAnalysis);
+
+    const postData = {
       userid: req.user.id,
       postType: "post",
       content: {
@@ -141,19 +186,45 @@ export const createPost = async (req, res) => {
         mentions: mentions || [],
         videoMeta,
       },
+      // আপাতত default, পরে background-এ আসল category বসবে
+      categories: [...DEFAULT_CATEGORIES],
       privacy: privacy || "public",
-    });
+    };
+
+    // Local filter কিছু পেলে সরাসরি auto_hidden, Gemini call হবে না
+    if (local.flagged) {
+      postData.moderationStatus = "auto_hidden";
+      postData.moderationHistory = [flagEntry("local_filter", local.flagType)];
+    }
+
+    // ── ধাপ ২: আগে post save ──
+    const newPost = await Post.create(postData);
 
     await newPost.populate(
       "userid",
       "name username greenmarkVerified profileImage",
     );
-    res.status(201).json({ success: true, post: newPost });
+
+    // ── ধাপ ৩: save-এর পরে background-এ Gemini দিয়ে category ──
+    // text না থাকলে বা আগেই flagged হলে call হবে না
+    if (!local.flagged && textForAnalysis) {
+      categorizeInBackground(newPost._id, textForAnalysis);
+    }
+
+    res.status(201).json({
+      success: true,
+      post: newPost,
+      moderation: {
+        flagged: local.flagged,
+        flagType: local.flagType,
+        message: local.message,
+      },
+    });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
 };
-
+// ===================== CREATE QUESTION POST =====================
 // ===================== CREATE QUESTION POST =====================
 export const createQuestionPost = async (req, res) => {
   try {
@@ -173,21 +244,51 @@ export const createQuestionPost = async (req, res) => {
       });
     }
 
-    const newPost = await Post.create({
+    const cleanQuestion = questionText.trim();
+
+    // ── ধাপ ১: Local filter (API call ছাড়া, তাৎক্ষণিক) ──
+    const local = checkBadText(cleanQuestion);
+
+    const postData = {
       userid: req.user.id,
       postType: "question",
       question: {
-        questionText: questionText.trim(),
+        questionText: cleanQuestion,
         tags: tags || [],
       },
+      // আপাতত default, পরে background-এ আসল category বসবে
+      categories: [...DEFAULT_CATEGORIES],
       privacy: privacy || "public",
-    });
+    };
+
+    // Local filter কিছু পেলে সরাসরি auto_hidden, Gemini call হবে না
+    if (local.flagged) {
+      postData.moderationStatus = "auto_hidden";
+      postData.moderationHistory = [flagEntry("local_filter", local.flagType)];
+    }
+
+    // ── ধাপ ২: আগে post save ──
+    const newPost = await Post.create(postData);
 
     await newPost.populate(
       "userid",
       "name username greenmarkVerified profileImage",
     );
-    res.status(201).json({ success: true, post: newPost });
+
+    // ── ধাপ ৩: save-এর পরে background-এ Gemini দিয়ে category ──
+    if (!local.flagged) {
+      categorizeInBackground(newPost._id, cleanQuestion);
+    }
+
+    res.status(201).json({
+      success: true,
+      post: newPost,
+      moderation: {
+        flagged: local.flagged,
+        flagType: local.flagType,
+        message: local.message,
+      },
+    });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -328,6 +429,7 @@ export const createSharePost = async (req, res) => {
 };
 
 // ===================== UPDATE POST =====================
+// ===================== UPDATE POST =====================
 export const updatePost = async (req, res) => {
   try {
     const post = await Post.findOne({
@@ -343,6 +445,9 @@ export const updatePost = async (req, res) => {
         .json({ message: "You can only edit your own posts" });
     }
 
+    // edit-এর আগের text মনে রাখা, পরে তুলনা করার জন্য
+    const oldText = getTextForAnalysis(post);
+
     if (post.postType === "post" && req.body.content) {
       Object.assign(post.content, req.body.content);
     }
@@ -355,13 +460,66 @@ export const updatePost = async (req, res) => {
 
     if (req.body.privacy) post.privacy = req.body.privacy;
 
+    // ── Moderation: শুধু text বদলালে চেক ──
+    const newText = getTextForAnalysis(post);
+    const textChanged = newText !== oldText;
+
+    let moderation = { flagged: false, flagType: "none", message: null };
+    let runBackground = false;
+
+    if (textChanged) {
+      const local = checkBadText(newText);
+
+      if (local.flagged) {
+        // ১) Local filter কিছু পেয়েছে: API call ছাড়াই auto_hidden
+        moderation = local;
+        post.categories = [...DEFAULT_CATEGORIES];
+
+        if (post.moderationStatus === "active") {
+          post.moderationStatus = "auto_hidden";
+          post.moderationHistory.push(
+            flagEntry("local_filter", local.flagType),
+          );
+        }
+      } else if (isAutoFlagged(post)) {
+        // ২) আগে system hide করেছিল, এখন text পরিষ্কার:
+        //    Gemini দিয়ে যাচাই করে তারপর ফিরিয়ে আনা হবে
+        const analysis = await categorizePost(newText);
+        post.categories = analysis.categories;
+
+        if (analysis.flagged) {
+          moderation = {
+            flagged: true,
+            flagType: analysis.flagType,
+            message: analysis.message,
+          };
+        } else {
+          post.moderationStatus = "active";
+          post.moderationHistory.push({
+            status: "active",
+            changedBy: null,
+            changedAt: new Date(),
+            reason: "edited_clean",
+            note: "auto_restored",
+          });
+        }
+      } else {
+        // ৩) সাধারণ edit: save-এর পরে background-এ category update
+        runBackground = true;
+      }
+    }
+
     const updatedPost = await post.save();
     await updatedPost.populate(
       "userid",
       "name username greenmarkVerified profileImage",
     );
 
-    res.json({ success: true, post: updatedPost });
+    if (runBackground && newText) {
+      categorizeInBackground(updatedPost._id, newText);
+    }
+
+    res.json({ success: true, post: updatedPost, moderation });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -414,6 +572,7 @@ export const deletePost = async (req, res) => {
 };
 
 // ===================== GET POST COUNT BY USERID =====================
+// ===================== GET POST COUNT BY USERID =====================
 export const getPostCountByUserId = async (req, res) => {
   try {
     const { userid } = req.params;
@@ -422,10 +581,22 @@ export const getPostCountByUserId = async (req, res) => {
       return res.status(400).json({ message: "UserId is required" });
     }
 
-    // deleted/removed post count এ ধরা হবে না
+    if (!mongoose.Types.ObjectId.isValid(userid)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
+    const viewerId = req.user?.id || null;
+    const isOwner = !!viewerId && viewerId.toString() === userid.toString();
+
+    // deleted/removed কখনো গোনা হবে না
+    // auto_hidden শুধু মালিক নিজের count-এ দেখবে
     const count = await Post.countDocuments({
       userid,
-      moderationStatus: { $nin: ["deleted", "removed"] },
+      moderationStatus: {
+        $nin: isOwner
+          ? ["deleted", "removed"]
+          : ["deleted", "removed", "auto_hidden"],
+      },
     });
 
     return res.status(200).json({ userid, count });

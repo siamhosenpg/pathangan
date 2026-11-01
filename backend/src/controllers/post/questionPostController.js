@@ -4,8 +4,16 @@ import Reaction from "../../models/reactionModel.js";
 import Follow from "../../models/followModel.js";
 import { attachAnswerPreviews } from "../../helpers/attachAnswerPreviews.js";
 import { getBlockedUserIds } from "../../helpers/blockHelper.js"; // তোমার আসল path অনুযায়ী বদলাও
+import {
+  attachModerationNotice,
+  buildModerationNotice,
+} from "../../helpers/moderation/moderationNotice.js";
 
+// সবার কাছ থেকে লুকানো থাকবে (list/feed-এর জন্য)
 const HIDDEN_STATUSES = ["deleted", "removed", "auto_hidden"];
+
+// মালিক নিজের profile-এ auto_hidden দেখতে পারবে, এই দুটো ছাড়া
+const OWNER_HIDDEN_STATUSES = ["deleted", "removed"];
 
 // ===================== GET ALL QUESTION POSTS (cursor-based, N+1 fixed) =====================
 export const getAllQuestions = async (req, res) => {
@@ -117,6 +125,10 @@ export const getQuestionsByUserId = async (req, res) => {
     const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
     const currentUserId = req.user?.id || null;
 
+    // নিজের profile দেখছে কিনা
+    const isOwner =
+      !!currentUserId && currentUserId.toString() === userid.toString();
+
     // ── Hidden: block সম্পর্ক বা ডিলিট হওয়া ইউজার হলে খালি লিস্ট ──
     const blockedIds = await getBlockedUserIds(currentUserId);
 
@@ -128,10 +140,13 @@ export const getQuestionsByUserId = async (req, res) => {
       });
     }
 
+    // auto_hidden question শুধু মালিক নিজের profile-এ দেখবে
     const query = {
       userid,
       postType: "question",
-      moderationStatus: { $nin: HIDDEN_STATUSES },
+      moderationStatus: {
+        $nin: isOwner ? OWNER_HIDDEN_STATUSES : HIDDEN_STATUSES,
+      },
     };
     if (cursor) query.createdAt = { $lt: cursor };
 
@@ -185,9 +200,11 @@ export const getQuestionsByUserId = async (req, res) => {
     }
 
     // ── Final merge ──────────────────────────────────────
+    // attachModerationNotice: মালিক হলে auto_hidden question-এ বার্তা বসায়,
+    // আর moderationHistory response থেকে সরিয়ে দেয়
     let finalQuestions = questions.map((q) => {
       const merged = {
-        ...q,
+        ...attachModerationNotice(q, isOwner),
         isReacted: reactedSet.has(q._id.toString()),
       };
 
@@ -233,17 +250,25 @@ export const getQuestionById = async (req, res) => {
       return res.status(404).json({ message: "Question not found" });
 
     const userId = req.user?.id || null;
+    const isAdmin = req.user?.role === "admin";
+
+    const authorId = question.userid?._id?.toString();
+    const isOwner = !!userId && authorId === userId.toString();
 
     // ── Hidden check: block সম্পর্ক বা ডিলিট হওয়া author হলে 404 ──
     const blockedIds = await getBlockedUserIds(userId);
-    const authorId = question.userid?._id?.toString();
 
     if (authorId && blockedIds.some((b) => b.toString() === authorId)) {
       return res.status(404).json({ message: "Question not found" });
     }
 
-    // ── Soft-deleted check ─────────────────────────────────
-    if (HIDDEN_STATUSES.includes(question.moderationStatus)) {
+    // ── auto_hidden: শুধু মালিক বা admin দেখতে পারবে, অন্যরা 404 ──
+    if (question.moderationStatus === "auto_hidden") {
+      if (!isOwner && !isAdmin) {
+        return res.status(404).json({ message: "Question not found" });
+      }
+    } else if (OWNER_HIDDEN_STATUSES.includes(question.moderationStatus)) {
+      // ── Soft-deleted check ─────────────────────────────────
       return res.status(200).json({
         isDeleted: true,
         moderationStatus: question.moderationStatus,
@@ -280,10 +305,17 @@ export const getQuestionById = async (req, res) => {
       }
     }
 
-    // ── Merge isReacted + isFollowing ──────────────────────
+    // ── মালিক হলে moderation বার্তা ──
+    const moderationNotice = isOwner ? buildModerationNotice(question) : null;
+
+    // moderationHistory শুধু admin দেখতে পারবে
+    if (!isAdmin) delete question.moderationHistory;
+
+    // ── Merge isReacted + isFollowing + moderationNotice ──
     let finalQuestion = {
       ...question,
       isReacted,
+      moderationNotice,
       userid: question.userid
         ? { ...question.userid, isFollowing }
         : question.userid,

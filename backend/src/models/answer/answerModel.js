@@ -44,6 +44,28 @@ const answerSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+
+    // ===================== MODERATION =====================
+    // পুরোনো answer-এ এই field নেই, query-তে সেগুলো active ধরা হয়
+    moderationStatus: {
+      type: String,
+      enum: ["active", "hidden", "auto_hidden", "removed"],
+      default: "active",
+      index: true,
+    },
+    moderationHistory: [
+      {
+        status: { type: String },
+        changedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          default: null,
+        },
+        changedAt: { type: Date, default: Date.now },
+        reason: { type: String, trim: true, default: null },
+        note: { type: String, trim: true, default: null },
+      },
+    ],
   },
   { timestamps: true },
 );

@@ -3,6 +3,7 @@ import Post from "../../models/postmodel.js";
 import Reaction from "../../models/reactionModel.js";
 import Follow from "../../models/followModel.js";
 import { attachAnswerPreviews } from "../../helpers/attachAnswerPreviews.js";
+import { attachModerationNotice } from "../../helpers/moderation/moderationNotice.js";
 
 import {
   getBlockRelation,
@@ -10,7 +11,6 @@ import {
   isUserDeleted,
 } from "../../helpers/blockHelper.js";
 
-// ===================== GET POSTS BY USERID (N+1 fixed) =====================
 export const getPostsByUserId = async (req, res) => {
   try {
     const userId = req.params.userid;
@@ -26,8 +26,12 @@ export const getPostsByUserId = async (req, res) => {
 
     const currentUserId = req.user?.id || null;
 
+    // নিজের profile দেখছে কিনা
+    const isOwner =
+      !!currentUserId && currentUserId.toString() === userId.toString();
+
     // ── Block check ──
-    if (currentUserId && currentUserId.toString() !== userId.toString()) {
+    if (currentUserId && !isOwner) {
       const relation = await getBlockRelation(currentUserId, userId);
 
       // সে আমাকে block করেছে → যেন user-ই নেই
@@ -50,9 +54,14 @@ export const getPostsByUserId = async (req, res) => {
     const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
     const postType = req.query.postType || null;
 
+    // auto_hidden post শুধু মালিক নিজের profile-এ দেখবে
     const query = {
       userid: userId,
-      moderationStatus: { $nin: ["deleted", "removed", "auto_hidden"] },
+      moderationStatus: {
+        $nin: isOwner
+          ? ["deleted", "removed"]
+          : ["deleted", "removed", "auto_hidden"],
+      },
     };
     if (cursor) query.createdAt = { $lt: cursor };
     if (postType) query.postType = postType;
@@ -105,9 +114,11 @@ export const getPostsByUserId = async (req, res) => {
     }
 
     // ── Final merge ────────────────────────────────────────
+    // attachModerationNotice: মালিক হলে auto_hidden post-এ বার্তা বসায়,
+    // আর সবার response থেকে moderationHistory সরিয়ে দেয়
     let finalPosts = posts.map((post) => {
       const merged = {
-        ...post,
+        ...attachModerationNotice(post, isOwner),
         isReacted: reactedSet.has(post._id.toString()),
       };
       if (merged.userid) {

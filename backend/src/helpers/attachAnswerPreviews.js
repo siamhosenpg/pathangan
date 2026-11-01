@@ -27,6 +27,9 @@ export const attachAnswerPreviews = async (posts, blockedIds = []) => {
       $match: {
         questionId: { $in: questionIds },
         isDeleted: false,
+        // moderation-এ auto_hidden হওয়া answer feed-এর preview ও count-এ আসবে না
+        // (পুরোনো answer-এ field নেই, $ne তে সেগুলো ঠিকই মেলে)
+        moderationStatus: { $ne: "auto_hidden" },
         // aggregate-এ auto cast হয় না, তাই blockedIds অবশ্যই ObjectId হতে হবে
         ...(realBlockedIds.length > 0 && { userId: { $nin: realBlockedIds } }),
       },
@@ -78,8 +81,10 @@ export const attachAnswerPreviews = async (posts, blockedIds = []) => {
     const previewAnswers = group
       ? group.answers.map((a) => {
           const author = answerUsersMap.get(a.userId?.toString());
+          // moderationHistory preview-এ পাঠানোর দরকার নেই
+          const { moderationHistory, ...rest } = a;
           return {
-            ...a,
+            ...rest,
             // ডিলিট হলে বা একেবারে মুছে গেলে null → "ডিলিট হওয়া ইউজার"
             userId: author ? maskUser(author) : null,
           };

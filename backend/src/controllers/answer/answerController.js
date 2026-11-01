@@ -5,8 +5,19 @@ import {
   getBlockedUserIds,
   getBlockRelation,
 } from "../../helpers/blockHelper.js";
+import { checkBadText } from "../../helpers/moderation/badTextFilter.js";
+import { flagEntry } from "../../helpers/moderation/postModeration.js";
+import {
+  applyEditModeration,
+  moderateAnswerInBackground,
+  visibleAnswerFilter,
+  withAnswerNotice,
+} from "../../helpers/moderation/answerModeration.js";
 
 const POPULATE_USER = "name username profileImage badges";
+
+// এই অবস্থায় থাকা question-এ নতুন answer দেওয়া যাবে না
+const BLOCKED_QUESTION_STATUSES = ["deleted", "removed", "auto_hidden"];
 
 // ===================== CREATE ANSWER =====================
 export const createAnswer = async (req, res) => {
@@ -25,7 +36,10 @@ export const createAnswer = async (req, res) => {
       postType: "question",
     });
 
-    if (!questionPost) {
+    if (
+      !questionPost ||
+      BLOCKED_QUESTION_STATUSES.includes(questionPost.moderationStatus)
+    ) {
       return res.status(404).json({
         message: "Question not found or this post is not a question",
       });
@@ -68,6 +82,9 @@ export const createAnswer = async (req, res) => {
         .json({ message: "You have already answered this question" });
     }
 
+    // ── ধাপ ১: Local filter (API call ছাড়া, তাৎক্ষণিক) ──
+    const local = checkBadText(trimmed);
+
     // আগে delete করা answer থাকলে সেটাকেই নতুন করে চালু করা হবে
     const deletedAnswer = await Answer.findOne({
       questionId,
@@ -85,21 +102,48 @@ export const createAnswer = async (req, res) => {
       deletedAnswer.downvotes = [];
       deletedAnswer.upvotesCount = 0;
       deletedAnswer.downvotesCount = 0;
+
+      // নতুন text, তাই moderation নতুন করে শুরু
+      deletedAnswer.moderationStatus = local.flagged ? "auto_hidden" : "active";
+      if (local.flagged) {
+        deletedAnswer.moderationHistory.push(
+          flagEntry("local_filter", local.flagType),
+        );
+      }
+
       await deletedAnswer.save();
       answer = deletedAnswer;
     } else {
-      answer = await Answer.create({
-        questionId,
-        userId,
-        text: trimmed,
-      });
+      const answerData = { questionId, userId, text: trimmed };
+
+      // Local filter কিছু পেলে সরাসরি auto_hidden, Gemini call হবে না
+      if (local.flagged) {
+        answerData.moderationStatus = "auto_hidden";
+        answerData.moderationHistory = [
+          flagEntry("local_filter", local.flagType),
+        ];
+      }
+
+      answer = await Answer.create(answerData);
     }
 
     await answer.populate("userId", POPULATE_USER);
 
-    return res
-      .status(201)
-      .json({ success: true, message: "Answer posted successfully", answer });
+    // ── ধাপ ২: save-এর পরে background-এ Gemini দিয়ে যাচাই ──
+    if (!local.flagged) {
+      moderateAnswerInBackground(answer._id, trimmed);
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: "Answer posted successfully",
+      answer: withAnswerNotice(answer, true),
+      moderation: {
+        flagged: local.flagged,
+        flagType: local.flagType,
+        message: local.message,
+      },
+    });
   } catch (err) {
     if (err.code === 11000) {
       return res
@@ -125,30 +169,45 @@ export const getAnswersByQuestion = async (req, res) => {
       ? new mongoose.Types.ObjectId(req.query.cursor)
       : null;
 
+    const viewerId = req.user?.id || null;
+    const isAdmin = req.user?.role === "admin";
+
     // ── Block: viewer-এর সাথে দুই দিকের blocked user ──
-    const blockedIds = await getBlockedUserIds(req.user?.id);
+    const blockedIds = await getBlockedUserIds(viewerId);
 
-    // প্রশ্নকারী blocked হলে পুরো question লুকানো
-    if (blockedIds.length > 0) {
-      const questionPost = await Post.findById(questionId)
-        .select("userid")
-        .lean();
+    const questionPost = await Post.findById(questionId)
+      .select("userid moderationStatus")
+      .lean();
 
-      if (
-        questionPost &&
-        blockedIds.some((b) => b.toString() === questionPost.userid.toString())
-      ) {
+    if (questionPost) {
+      const questionOwnerId = questionPost.userid.toString();
+
+      // প্রশ্নকারী blocked হলে পুরো question লুকানো
+      if (blockedIds.some((b) => b.toString() === questionOwnerId)) {
         return res.status(404).json({ message: "Question not found" });
+      }
+
+      // question auto_hidden হলে শুধু মালিক বা admin দেখবে
+      if (questionPost.moderationStatus === "auto_hidden") {
+        const isQuestionOwner =
+          !!viewerId && questionOwnerId === viewerId.toString();
+        if (!isQuestionOwner && !isAdmin) {
+          return res.status(404).json({ message: "Question not found" });
+        }
       }
     }
 
     const blockFilter =
       blockedIds.length > 0 ? { userId: { $nin: blockedIds } } : {};
 
+    // auto_hidden answer শুধু যে লিখেছে সে দেখবে
+    const visibleFilter = visibleAnswerFilter(viewerId);
+
     const matchQuery = {
       questionId: new mongoose.Types.ObjectId(questionId),
       isDeleted: false,
       ...blockFilter,
+      ...visibleFilter,
     };
 
     if (cursor) matchQuery._id = { $lt: cursor };
@@ -166,11 +225,20 @@ export const getAnswersByQuestion = async (req, res) => {
       questionId,
       isDeleted: false,
       ...blockFilter,
+      ...visibleFilter,
     });
+
+    // মালিকের answer-এ moderationNotice বসবে, বাকিদের null
+    const shaped = answers.map((a) =>
+      withAnswerNotice(
+        a,
+        !!viewerId && a.userId?._id?.toString() === viewerId.toString(),
+      ),
+    );
 
     return res.status(200).json({
       success: true,
-      answers,
+      answers: shaped,
       totalCount,
       hasMore,
       nextCursor: hasMore ? answers[answers.length - 1]._id : null,
@@ -197,8 +265,17 @@ export const getAnswerById = async (req, res) => {
 
     if (!answer) return res.status(404).json({ message: "Answer not found" });
 
+    const viewerId = req.user?.id || null;
+    const isAdmin = req.user?.role === "admin";
+    const isAuthor =
+      !!viewerId && answer.userId?._id?.toString() === viewerId.toString();
+
+    // ── auto_hidden: শুধু যে লিখেছে বা admin দেখতে পারবে ──
+    if (answer.moderationStatus === "auto_hidden" && !isAuthor && !isAdmin) {
+      return res.status(404).json({ message: "Answer not found" });
+    }
+
     // ── Block check ──
-    const viewerId = req.user?.id;
     if (viewerId && answer.userId?._id) {
       const relation = await getBlockRelation(viewerId, answer.userId._id);
       if (relation.any) {
@@ -206,7 +283,9 @@ export const getAnswerById = async (req, res) => {
       }
     }
 
-    return res.status(200).json({ success: true, answer });
+    return res
+      .status(200)
+      .json({ success: true, answer: withAnswerNotice(answer, isAuthor) });
   } catch (err) {
     console.error("getAnswerById error:", err);
     return res.status(500).json({ message: "Server error" });
@@ -251,13 +330,33 @@ export const updateAnswer = async (req, res) => {
         .json({ message: "Answer cannot exceed 10000 characters" });
     }
 
+    // ── Moderation: শুধু text বদলালে চেক ──
+    const textChanged = trimmed !== answer.text;
+
+    let moderation = { flagged: false, flagType: "none", message: null };
+    let runBackground = false;
+
+    if (textChanged) {
+      const result = await applyEditModeration(answer, trimmed);
+      moderation = result.moderation;
+      runBackground = result.runBackground;
+    }
+
     answer.text = trimmed;
     await answer.save();
     await answer.populate("userId", POPULATE_USER);
 
-    return res
-      .status(200)
-      .json({ success: true, message: "Answer updated successfully", answer });
+    // save-এর পরে background-এ যাচাই
+    if (runBackground) {
+      moderateAnswerInBackground(answer._id, trimmed);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Answer updated successfully",
+      answer: withAnswerNotice(answer, true),
+      moderation,
+    });
   } catch (err) {
     console.error("updateAnswer error:", err);
     return res.status(500).json({ message: "Server error" });
@@ -313,6 +412,11 @@ export const markBestAnswer = async (req, res) => {
     const answer = await Answer.findOne({ _id: answerId, isDeleted: false });
     if (!answer) return res.status(404).json({ message: "Answer not found" });
 
+    // hidden answer best করা যাবে না
+    if (answer.moderationStatus === "auto_hidden") {
+      return res.status(404).json({ message: "Answer not found" });
+    }
+
     const questionPost = await Post.findById(answer.questionId);
     if (!questionPost) {
       return res.status(404).json({ message: "Question post not found" });
@@ -342,7 +446,7 @@ export const markBestAnswer = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Best answer marked successfully",
-      answer,
+      answer: withAnswerNotice(answer, false),
     });
   } catch (err) {
     console.error("markBestAnswer error:", err);
@@ -371,6 +475,11 @@ export const voteAnswer = async (req, res) => {
 
     const answer = await Answer.findOne({ _id: answerId, isDeleted: false });
     if (!answer) return res.status(404).json({ message: "Answer not found" });
+
+    // hidden answer-এ vote করা যাবে না
+    if (answer.moderationStatus === "auto_hidden") {
+      return res.status(404).json({ message: "Answer not found" });
+    }
 
     // ── Block check: block থাকলে vote করা যাবে না ──
     const relation = await getBlockRelation(userId, answer.userId);
@@ -438,6 +547,7 @@ export const getMyAnswers = async (req, res) => {
     const blockedIds = await getBlockedUserIds(userId);
     const blockedSet = new Set(blockedIds.map((b) => b.toString()));
 
+    // নিজের answer, তাই auto_hidden ও আসবে (notice সহ)
     const matchQuery = { userId, isDeleted: false };
     if (cursor) matchQuery._id = { $lt: cursor };
 
@@ -461,10 +571,12 @@ export const getMyAnswers = async (req, res) => {
         : null;
 
     // প্রশ্নকারী blocked হলে সেই answer আমার list-এও দেখা যাবে না
-    const answers = rawAnswers.filter((a) => {
-      const authorId = a.questionId?.userid?.toString();
-      return !(authorId && blockedSet.has(authorId));
-    });
+    const answers = rawAnswers
+      .filter((a) => {
+        const authorId = a.questionId?.userid?.toString();
+        return !(authorId && blockedSet.has(authorId));
+      })
+      .map((a) => withAnswerNotice(a, true));
 
     return res.status(200).json({
       success: true,
@@ -487,13 +599,16 @@ export const getAnswerCount = async (req, res) => {
       return res.status(400).json({ message: "Invalid question ID" });
     }
 
-    // list-এর সাথে count মেলাতে blocked user-এর answer বাদ
-    const blockedIds = await getBlockedUserIds(req.user?.id);
+    const viewerId = req.user?.id || null;
+
+    // list-এর সাথে count মেলাতে blocked user-এর আর hidden answer বাদ
+    const blockedIds = await getBlockedUserIds(viewerId);
 
     const count = await Answer.countDocuments({
       questionId,
       isDeleted: false,
       ...(blockedIds.length > 0 && { userId: { $nin: blockedIds } }),
+      ...visibleAnswerFilter(viewerId),
     });
 
     return res.status(200).json({ success: true, questionId, count });
