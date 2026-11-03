@@ -4,6 +4,7 @@ import SavedItem from "../../models/savesystem/savedItemSchema.js";
 import SavedCollection from "../../models/savesystem/savedCollectionSchema.js";
 import { getOrCreateDefaultCollection } from "./savedCollectionController.js";
 import Reaction from "../../models/reactionModel.js";
+import { trackInterestInBackground } from "../../helpers/feed/trackInterest.js";
 
 const DEFAULT_PAGE_LIMIT = 10;
 const MAX_PAGE_LIMIT = 30;
@@ -18,6 +19,7 @@ const sendError = (res, status, code, message) =>
 | CREATE: কোনো কালেকশনে পোস্ট সেভ করা ("default" দিলে ডিফল্ট কালেকশনে)
 |--------------------------------------------------------------------------
 */
+
 export const createSavedItem = async (req, res) => {
   try {
     const { collectionId } = req.params;
@@ -51,6 +53,9 @@ export const createSavedItem = async (req, res) => {
       userId,
       postId,
     });
+
+    // 🎯 আগ্রহ জমানো (background, একই post একবারই গোনা হয়)
+    trackInterestInBackground(userId, postId, "save");
 
     return res.status(201).json(item);
   } catch (err) {

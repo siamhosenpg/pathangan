@@ -43,6 +43,8 @@ import blockRoutes from "./src/routes/blockRoutes.js";
 import handoutRoutes from "./src/routes/handout/handoutRoutes.js";
 import chapterRoutes from "./src/routes/handout/chapterRoutes.js";
 import chapterRatingRoutes from "./src/routes/rating/chapterRatingRoutes.js";
+import feedRoutes from "./src/routes/feed/feedRoutes.js";
+import { startCategorizationRetryJob } from "./src/jobs/retryCategorization.js";
 
 dotenv.config();
 
@@ -120,7 +122,7 @@ app.use(generalLimiter);
 // authLimiter আগে রেজিস্টার করতে হবে authRoutes এর আগে
 app.use("/auth/login", authLimiter);
 app.use("/auth/register", authLimiter);
-
+app.use("/feed", feedRoutes);
 // auth এর বাকি সব রুট স্বাভাবিকভাবে
 app.use("/googleauth", googleAuthRoutes);
 app.use("/auth", authRoutes);
@@ -190,5 +192,6 @@ app.use((err, req, res, next) => {
 (async () => {
   await connectDB();
   startAccountPurgeJob();
+  startCategorizationRetryJob();
   app.listen(port, () => console.log(`Server running on port ${port}`));
 })();

@@ -73,8 +73,21 @@ const postSchema = new mongoose.Schema(
     },
 
     // ===================== AI CATEGORIES =====================
-    // Gemini দিয়ে text থেকে বের করা category (text না থাকলে ["Normal Content"])
+    // Gemini দিয়ে title + text থেকে বের করা category
+    // text না থাকলে ["Normal Content"], Gemini-র উত্তর আসার আগ পর্যন্ত []
     categories: [{ type: String, trim: true }],
+
+    // category বের করার অবস্থা:
+    //   done  = হয়ে গেছে (বা দরকার নেই)
+    //   retry = এখনো হয়নি, categorizeRetryAt সময়ে job আবার চেষ্টা করবে
+    //   failed = সর্বোচ্চ চেষ্টার পরেও হয়নি
+    categorizationStatus: {
+      type: String,
+      enum: ["done", "retry", "failed"],
+      default: "done",
+    },
+    categorizationAttempts: { type: Number, default: 0 },
+    categorizeRetryAt: { type: Date, default: null },
 
     // ===================== QUESTION POST =====================
     question: questionSchema,
@@ -121,6 +134,7 @@ const postSchema = new mongoose.Schema(
       },
     ],
     reportCount: { type: Number, default: 0 },
+    autoHiddenAt: { type: Date, default: null },
     deletedAt: { type: Date, default: null },
     deletedBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -133,6 +147,7 @@ const postSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+    removalReason: { type: String, trim: true, default: null },
   },
 
   { timestamps: true },
@@ -149,7 +164,14 @@ postSchema.index({ moderationStatus: 1, createdAt: -1 });
 postSchema.index({ userid: 1, createdAt: -1 });
 
 // category দিয়ে filter/search করার জন্য
-postSchema.index({ categories: 1 });
+
+postSchema.index({ categories: 1, createdAt: -1 });
+
+// retry job-এর জন্য: শুধু "retry" অবস্থার post এই index-এ থাকে, তাই খুব ছোট
+postSchema.index(
+  { categorizeRetryAt: 1 },
+  { partialFilterExpression: { categorizationStatus: "retry" } },
+);
 
 const Post = mongoose.model("Post", postSchema);
 export default Post;

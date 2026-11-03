@@ -1,4 +1,5 @@
 import Post from "../../models/postmodel.js";
+import { trackInterestInBackground } from "../../helpers/feed/trackInterest.js";
 
 // ─────────────────────────────────────────────
 // In-memory IP rate limit store
@@ -43,7 +44,7 @@ const getClientIp = (req) => {
 //   - Image/text post: 3 সেকেন্ড screen এ দেখা হয়েছে
 //   - Video post: duration এর 10% দেখা হয়েছে
 //
-// Rate limit: একই IP + একই postId → 6 ঘন্টায় একবার
+// Rate limit: একই IP + একই postId → 6 ঘন্টায় একবার (শুধু view count-এর জন্য)
 // Auth optional — logged in বা guest দুজনেই view করতে পারবে
 // ─────────────────────────────────────────────
 export const recordView = async (req, res) => {
@@ -53,6 +54,12 @@ export const recordView = async (req, res) => {
     // ── Basic validation ──
     if (!postId || postId.length !== 24) {
       return res.status(400).json({ message: "Invalid post id" });
+    }
+
+    // 🎯 লগইন করা user-এর আগ্রহ জমানো (IP rate limit-এর আগে,
+    // কারণ আগ্রহ user-ভিত্তিক; একই post একবারই গোনা হয়)
+    if (req.user?.id) {
+      trackInterestInBackground(req.user.id, postId, "view");
     }
 
     const clientIp = getClientIp(req);

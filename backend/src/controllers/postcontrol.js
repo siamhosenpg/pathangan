@@ -5,6 +5,7 @@ import { uploadMedia } from "../utils/uploadToCloudinary.js";
 import { getBlockedUserIds } from "../helpers/blockHelper.js";
 import { checkBadText } from "../helpers/moderation/badTextFilter.js";
 import { buildModerationNotice } from "../helpers/moderation/moderationNotice.js";
+import { trackInterestInBackground } from "../helpers/feed/trackInterest.js";
 import {
   DEFAULT_CATEGORIES,
   categorizePost,
@@ -12,6 +13,7 @@ import {
   getTextForAnalysis,
   isAutoFlagged,
   flagEntry,
+  pendingCategorization,
 } from "../helpers/moderation/postModeration.js";
 // ===================== GET SINGLE POST BY MONGODB _ID =====================
 // ===================== GET SINGLE POST BY MONGODB _ID =====================
@@ -103,6 +105,7 @@ export const getPostById = async (req, res) => {
 
 // ===================== CREATE NORMAL POST =====================
 // ===================== CREATE NORMAL POST =====================
+
 // ===================== CREATE NORMAL POST =====================
 export const createPost = async (req, res) => {
   try {
@@ -167,11 +170,15 @@ export const createPost = async (req, res) => {
     }
 
     // ── ধাপ ১: Local filter (API call ছাড়া, তাৎক্ষণিক) ──
+    // title আর text একসাথে যাচাই হবে
     const textForAnalysis = [title, text]
       .filter((t) => typeof t === "string" && t.trim())
       .join("\n");
 
     const local = checkBadText(textForAnalysis);
+
+    // text আছে আর local filter পরিষ্কার: Gemini দিয়ে category বের হবে
+    const shouldCategorize = !local.flagged && !!textForAnalysis;
 
     const postData = {
       userid: req.user.id,
@@ -186,8 +193,10 @@ export const createPost = async (req, res) => {
         mentions: mentions || [],
         videoMeta,
       },
-      // আপাতত default, পরে background-এ আসল category বসবে
-      categories: [...DEFAULT_CATEGORIES],
+      // category বের হওয়ার অপেক্ষায় থাকলে [], আর text না থাকলে (বা আগেই flagged) default
+      categories: shouldCategorize ? [] : [...DEFAULT_CATEGORIES],
+      // Gemini ব্যর্থ হলে বা server বন্ধ হলে ৫ মিনিট পরে job আবার চেষ্টা করবে
+      ...(shouldCategorize ? pendingCategorization() : {}),
       privacy: privacy || "public",
     };
 
@@ -206,8 +215,7 @@ export const createPost = async (req, res) => {
     );
 
     // ── ধাপ ৩: save-এর পরে background-এ Gemini দিয়ে category ──
-    // text না থাকলে বা আগেই flagged হলে call হবে না
-    if (!local.flagged && textForAnalysis) {
+    if (shouldCategorize) {
       categorizeInBackground(newPost._id, textForAnalysis);
     }
 
@@ -249,6 +257,8 @@ export const createQuestionPost = async (req, res) => {
     // ── ধাপ ১: Local filter (API call ছাড়া, তাৎক্ষণিক) ──
     const local = checkBadText(cleanQuestion);
 
+    const shouldCategorize = !local.flagged;
+
     const postData = {
       userid: req.user.id,
       postType: "question",
@@ -256,8 +266,10 @@ export const createQuestionPost = async (req, res) => {
         questionText: cleanQuestion,
         tags: tags || [],
       },
-      // আপাতত default, পরে background-এ আসল category বসবে
-      categories: [...DEFAULT_CATEGORIES],
+      // category বের হওয়ার অপেক্ষায় থাকলে [], আগেই flagged হলে default
+      categories: shouldCategorize ? [] : [...DEFAULT_CATEGORIES],
+      // Gemini ব্যর্থ হলে বা server বন্ধ হলে ৫ মিনিট পরে job আবার চেষ্টা করবে
+      ...(shouldCategorize ? pendingCategorization() : {}),
       privacy: privacy || "public",
     };
 
@@ -276,7 +288,7 @@ export const createQuestionPost = async (req, res) => {
     );
 
     // ── ধাপ ৩: save-এর পরে background-এ Gemini দিয়ে category ──
-    if (!local.flagged) {
+    if (shouldCategorize) {
       categorizeInBackground(newPost._id, cleanQuestion);
     }
 
@@ -365,6 +377,7 @@ export const createCoursePost = async (req, res) => {
 };
 
 // ===================== CREATE SHARE POST =====================
+// ===================== CREATE SHARE POST =====================
 export const createSharePost = async (req, res) => {
   try {
     if (!req.user?.id) {
@@ -417,6 +430,10 @@ export const createSharePost = async (req, res) => {
     });
 
     await Post.findByIdAndUpdate(parentPost, { $inc: { sharesCount: 1 } });
+
+    // 🎯 আগ্রহ জমানো: আসল post-এর বিষয়ে (background)
+    trackInterestInBackground(req.user.id, parentPost, "share");
+
     await sharePost.populate(
       "userid",
       "name username greenmarkVerified profileImage",
@@ -460,7 +477,7 @@ export const updatePost = async (req, res) => {
 
     if (req.body.privacy) post.privacy = req.body.privacy;
 
-    // ── Moderation: শুধু text বদলালে চেক ──
+    // ── Moderation: শুধু text বদলালে চেক (title + text একসাথে) ──
     const newText = getTextForAnalysis(post);
     const textChanged = newText !== oldText;
 
@@ -474,8 +491,13 @@ export const updatePost = async (req, res) => {
         // ১) Local filter কিছু পেয়েছে: API call ছাড়াই auto_hidden
         moderation = local;
         post.categories = [...DEFAULT_CATEGORIES];
+        post.categorizationStatus = "done";
+        post.categorizeRetryAt = null;
 
-        if (post.moderationStatus === "active") {
+        if (
+          ["active", "under_review"].includes(post.moderationStatus) ||
+          isAutoFlagged(post)
+        ) {
           post.moderationStatus = "auto_hidden";
           post.moderationHistory.push(
             flagEntry("local_filter", local.flagType),
@@ -485,15 +507,8 @@ export const updatePost = async (req, res) => {
         // ২) আগে system hide করেছিল, এখন text পরিষ্কার:
         //    Gemini দিয়ে যাচাই করে তারপর ফিরিয়ে আনা হবে
         const analysis = await categorizePost(newText);
-        post.categories = analysis.categories;
 
-        if (analysis.flagged) {
-          moderation = {
-            flagged: true,
-            flagType: analysis.flagType,
-            message: analysis.message,
-          };
-        } else {
+        const restore = () => {
           post.moderationStatus = "active";
           post.moderationHistory.push({
             status: "active",
@@ -502,10 +517,39 @@ export const updatePost = async (req, res) => {
             reason: "edited_clean",
             note: "auto_restored",
           });
+        };
+
+        if (analysis.failed) {
+          // যাচাই করা গেল না, তবে local filter পরিষ্কার বলেছে।
+          // post ফিরে আসবে, আর ৫ মিনিট পরে আবার যাচাই হবে
+          // (তখন খারাপ কিছু পেলে আবার auto_hidden হবে)
+          restore();
+          Object.assign(post, pendingCategorization());
+        } else {
+          post.categories = analysis.categories;
+          post.categorizationStatus = "done";
+          post.categorizeRetryAt = null;
+
+          if (analysis.flagged) {
+            moderation = {
+              flagged: true,
+              flagType: analysis.flagType,
+              message: analysis.message,
+            };
+          } else {
+            restore();
+          }
         }
-      } else {
+      } else if (newText) {
         // ৩) সাধারণ edit: save-এর পরে background-এ category update
+        //    (পুরোনো category নতুন ফল আসা পর্যন্ত থাকবে)
+        Object.assign(post, pendingCategorization());
         runBackground = true;
+      } else {
+        // ৪) সব text মুছে ফেলা হয়েছে
+        post.categories = [...DEFAULT_CATEGORIES];
+        post.categorizationStatus = "done";
+        post.categorizeRetryAt = null;
       }
     }
 
@@ -515,7 +559,7 @@ export const updatePost = async (req, res) => {
       "name username greenmarkVerified profileImage",
     );
 
-    if (runBackground && newText) {
+    if (runBackground) {
       categorizeInBackground(updatedPost._id, newText);
     }
 

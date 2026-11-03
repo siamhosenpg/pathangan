@@ -4,6 +4,7 @@ import Post from "../models/postmodel.js";
 import { createNotification } from "./notification/notificationcontroller.js";
 import { Notification } from "../models/notification/notificationmodel.js";
 import { getBlockedUserIds, getBlockRelation } from "../helpers/blockHelper.js"; // path মিলিয়ে নাও
+import { trackInterestInBackground } from "../helpers/feed/trackInterest.js";
 
 const USER_FIELDS =
   "name userid profileImage gender username badges greenmarkVerified";
@@ -119,6 +120,9 @@ export const createComment = async (req, res) => {
     if (!rootParentId) {
       await Post.findByIdAndUpdate(postId, { $inc: { commentsCount: 1 } });
     }
+
+    // 🎯 আগ্রহ জমানো (background, একই post একবারই গোনা হয়)
+    trackInterestInBackground(req.user.id, postId, "comment");
 
     await newComment.populate([
       { path: "commentUserId", select: USER_FIELDS },

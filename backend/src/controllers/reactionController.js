@@ -8,7 +8,9 @@ import {
   deleteActivity,
 } from "./activities/activitesController.js";
 import { getBlockedUserIds, getBlockRelation } from "../helpers/blockHelper.js"; // path মিলিয়ে নাও
+import { trackInterestInBackground } from "../helpers/feed/trackInterest.js";
 
+// ===================== TOGGLE LIKE =====================
 // ===================== TOGGLE LIKE =====================
 export const toggleReaction = async (req, res) => {
   try {
@@ -98,6 +100,9 @@ export const toggleReaction = async (req, res) => {
       $inc: { likesCount: 1 },
     });
 
+    // 🎯 আগ্রহ জমানো (background, একই post একবারই গোনা হয়)
+    trackInterestInBackground(userId, postId, "like");
+
     // 3️⃣ notification
     try {
       await createNotification({
@@ -124,7 +129,6 @@ export const toggleReaction = async (req, res) => {
     });
   }
 };
-
 // ===================== GET ALL LIKES =====================
 export const getReactionsByPost = async (req, res) => {
   try {
