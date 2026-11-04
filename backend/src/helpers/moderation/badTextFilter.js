@@ -7,6 +7,9 @@ const BENGALI = /[\u0980-\u09FF]/;
 const SPLIT = /[\s,.;:!?()"“”\[\]{}\/\\|…।_-]+/;
 const WILDCARD_CHARS = new Set(["*", "#", "@", "$", "%"]);
 
+// তালিকার বাংলা শব্দও input-এর মতো NFKC করা হয়, নইলে য়, ড়, ঢ় থাকা শব্দ কখনো মিলবে না
+const nb = (s) => s.normalize("NFKC");
+
 // একই অক্ষর পরপর থাকলে একটা করে দেওয়া (fuuuck -> fuck)
 const collapse = (s) => s.replace(/(.)\1+/g, "$1");
 
@@ -24,22 +27,27 @@ const LEET = {
 const deLeet = (s) => s.replace(/[@$013457]/g, (ch) => LEET[ch]);
 
 // ---------- বাংলা ----------
-const BN_EXACT = new Set([
-  "বাল",
-  "বালের",
-  "ধোন",
-  "ধোনের",
-  "পোদ",
-  "পোঁদ",
-  "পোঁদে",
-  "পুটকি",
-  "পুটকির",
-  "হারামি",
-  "হারামী",
-  "শুয়োর",
-  "শুয়োরের",
-  "শুওর",
-]);
+const BN_EXACT = new Set(
+  [
+    "বাল",
+    "বালের",
+    "ধোন",
+    "ধোনের",
+    "পোদ",
+    "পোঁদ",
+    "পোঁদে",
+    "পুটকি",
+    "পুটকির",
+    "হারামি",
+    "হারামী",
+    "শুয়োর",
+    "শুয়োরের",
+    "শুওর",
+    "রান্ডি",
+    "রান্ডির",
+    "রাণ্ডি",
+  ].map(nb),
+);
 
 // এই দিয়ে শুরু হওয়া শব্দ ধরবে (চোদ্দ বাদ যাবে, কারণ পরে ্ থাকে)
 const BN_PREFIX = [
@@ -56,7 +64,9 @@ const BN_PREFIX = [
   "হারামজাদ",
   "গান্ডু",
   "গাণ্ডু",
-];
+  "চুতিয়া",
+  "চুতমারানি",
+].map(nb);
 
 // ---------- English / Banglish (সব ছোট হাতের) ----------
 const EN_EXACT = new Set(
@@ -76,9 +86,7 @@ const EN_EXACT = new Set(
     "nigger",
     "nigga",
     "faggot",
-    // Banglish
-    "magi",
-    "magir",
+    // Banglish ("magi" বাদ: collapse হয়ে maggi (নুডলস) ও মিলে যেত)
     "khanki",
     "khankir",
     "chod",
@@ -97,6 +105,15 @@ const EN_EXACT = new Set(
     "harami",
     "putki",
     "putkir",
+    "chutiya",
+    "chutiye",
+    "chutmarani",
+    "lauda",
+    "lawda",
+    "bhenchod",
+    "benchod",
+    "bhosdike",
+    "bhosdi",
   ].map(collapse),
 );
 
@@ -168,13 +185,37 @@ const HARMFUL_PHRASES = [
   "morte ja",
   "morge ja",
   "moira ja",
-];
+].map(nb);
 
 const MESSAGES = {
   obscene: "এই text-এ অশ্লীল ভাষা আছে",
   harmful: "এই text-এ ক্ষতিকর বিষয় আছে",
   obscene_and_harmful: "এই text-এ অশ্লীল ও ক্ষতিকর বিষয় আছে",
 };
+
+// f u c k, f.u.c.k, f-u-c-k: পরপর ৩টি বা বেশি একক ইংরেজি অক্ষর জোড়া লাগানো
+function joinSpacedLetters(tokens) {
+  const out = [];
+  let run = [];
+
+  const flush = () => {
+    if (run.length >= 3) out.push(run.join(""));
+    else out.push(...run);
+    run = [];
+  };
+
+  for (const t of tokens) {
+    if (t.length === 1 && /[a-z]/.test(t)) {
+      run.push(t);
+    } else {
+      flush();
+      out.push(t);
+    }
+  }
+  flush();
+
+  return out;
+}
 
 function wildcardHit(t) {
   if (t.length < 4) return false;
@@ -216,8 +257,10 @@ export function checkBadText(rawText) {
     .replace(ZERO_WIDTH, "")
     .replace(/['’‘`]/g, "");
 
-  const tokens = base.split(SPLIT).filter(Boolean);
-  if (tokens.length === 0) return clean;
+  const rawTokens = base.split(SPLIT).filter(Boolean);
+  if (rawTokens.length === 0) return clean;
+
+  const tokens = joinSpacedLetters(rawTokens);
 
   const obscene = tokens.some(isObsceneToken);
 

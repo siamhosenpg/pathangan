@@ -39,10 +39,11 @@ export function buildModerationNotice(post) {
   };
 }
 
-// profile-এর post list-এর জন্য: মালিক হলে প্রতিটা post-এ notice বসায়,
-// আর moderationHistory সরিয়ে দেয় (শুধু lean object-এর জন্য)
+// মালিক হলে notice বসায়, আর সবার response থেকে moderationHistory সরিয়ে দেয়
+// lean object ও mongoose document দুটোই নেয়, plain object ফেরত দেয়
 export function attachModerationNotice(post, isOwner) {
-  const moderationNotice = isOwner ? buildModerationNotice(post) : null;
-  const { moderationHistory, ...rest } = post;
-  return { ...rest, moderationNotice };
+  const obj = post?.toObject ? post.toObject() : { ...post };
+  obj.moderationNotice = isOwner ? buildModerationNotice(obj) : null;
+  delete obj.moderationHistory;
+  return obj;
 }

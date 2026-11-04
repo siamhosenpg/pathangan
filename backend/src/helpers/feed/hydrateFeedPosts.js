@@ -20,6 +20,7 @@ export async function hydrateFeedPosts({ ids, userId, blockedIds }) {
     .populate("userid", USER_FIELDS)
     .populate({
       path: "content.parentPost",
+      strictPopulate: false,
       populate: { path: "userid", select: USER_FIELDS },
     })
     .lean();

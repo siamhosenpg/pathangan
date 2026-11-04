@@ -8,10 +8,9 @@ import {
   updatePost,
   deletePost,
   getPostById,
-  createSharePost,
   getPostCountByUserId,
 } from "../controllers/postcontrol.js";
-import { getPosts } from "../controllers/post/feedController.js"; // ← নতুন alada file theke import
+import { getPosts } from "../controllers/post/feedController.js";
 import { getPostsByUserId } from "../controllers/post/userPostsController.js";
 import { recordView } from "../controllers/post/viewController.js";
 import { protect } from "../middleware/auth.js";
@@ -33,7 +32,6 @@ router.post(
   upload.array("media", 10),
   createCoursePost,
 );
-router.post("/share", protect, createSharePost);
 
 // ✅ Dynamic :id routes সবার শেষে
 router.put("/:id", protect, updatePost);

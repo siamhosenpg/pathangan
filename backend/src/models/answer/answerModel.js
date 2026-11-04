@@ -35,7 +35,6 @@ const answerSchema = new mongoose.Schema(
     reportCount: { type: Number, default: 0 },
     isDeleted: { type: Boolean, default: false, index: true },
 
-    // ── নতুন ──
     isEdited: { type: Boolean, default: false },
     editedAt: { type: Date, default: null },
     deletedAt: { type: Date, default: null },
@@ -66,6 +65,18 @@ const answerSchema = new mongoose.Schema(
         note: { type: String, trim: true, default: null },
       },
     ],
+
+    // ===================== AI যাচাইয়ের অবস্থা =====================
+    // done  = যাচাই হয়ে গেছে (বা দরকার নেই)
+    // retry = Gemini ব্যর্থ হয়েছিল, checkRetryAt সময়ে job আবার চেষ্টা করবে
+    // failed = সর্বোচ্চ চেষ্টার পরেও হয়নি
+    checkStatus: {
+      type: String,
+      enum: ["done", "retry", "failed"],
+      default: "done",
+    },
+    checkAttempts: { type: Number, default: 0 },
+    checkRetryAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
@@ -80,6 +91,12 @@ answerSchema.index(
   },
 );
 answerSchema.index({ text: "text" });
+
+// retry job-এর জন্য
+answerSchema.index(
+  { checkRetryAt: 1 },
+  { partialFilterExpression: { checkStatus: "retry" } },
+);
 
 const Answer = mongoose.model("Answer", answerSchema);
 export default Answer;

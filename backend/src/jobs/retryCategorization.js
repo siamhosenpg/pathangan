@@ -1,4 +1,5 @@
 import Post from "../models/postmodel.js";
+import Answer from "../models/answer/answerModel.js";
 import {
   DEFAULT_CATEGORIES,
   categorizePost,
@@ -9,18 +10,21 @@ import {
   applyAnalysis,
   getTextForAnalysis,
 } from "../helpers/moderation/postModeration.js";
+import { applyAnswerAnalysis } from "../helpers/moderation/answerModeration.js";
 
 const TICK_MS = 60 * 1000; // প্রতি মিনিটে একবার দেখবে
-const BATCH_SIZE = 10; // এক রাউন্ডে সর্বোচ্চ কয়টা post
-const LEASE_MS = 10 * 60 * 1000; // post "ধরা" থাকবে, যাতে একই post দুবার প্রসেস না হয়
+const BATCH_SIZE = 10; // এক রাউন্ডে সর্বোচ্চ কয়টা post (answer-ও একই সংখ্যা)
+const LEASE_MS = 10 * 60 * 1000; // "ধরা" থাকবে, যাতে একই জিনিস দুবার প্রসেস না হয়
 
 const SKIP_STATUSES = ["deleted", "removed"];
 
 let running = false;
 
+// ===================== POST =====================
+
 // সময় হয়ে যাওয়া একটা post atomically "দখল" করে আনে
 // (একসাথে দুটো server চললেও একই post দুবার প্রসেস হবে না)
-function claimNext() {
+function claimNextPost() {
   const now = new Date();
 
   return Post.findOneAndUpdate(
@@ -37,7 +41,7 @@ function claimNext() {
     .lean();
 }
 
-async function markDone(postId) {
+async function markPostDone(postId) {
   await Post.updateOne(
     { _id: postId },
     { $set: { categorizationStatus: "done", categorizeRetryAt: null } },
@@ -47,7 +51,7 @@ async function markDone(postId) {
 async function processPost(post) {
   // মুছে ফেলা post-এ আর কাজ নেই
   if (SKIP_STATUSES.includes(post.moderationStatus)) {
-    await markDone(post._id);
+    await markPostDone(post._id);
     return;
   }
 
@@ -70,8 +74,9 @@ async function processPost(post) {
   const analysis = await categorizePost(text);
 
   // সফল: categories বসবে, খারাপ কিছু থাকলে auto_hidden
+  // (এর মধ্যে text বদলে গেলে applyAnalysis কিছু বসায় না, নতুন edit-এর নিজের retry আছে)
   if (!analysis.failed) {
-    await applyAnalysis(post._id, analysis);
+    await applyAnalysis(post._id, analysis, text);
     return;
   }
 
@@ -103,25 +108,91 @@ async function processPost(post) {
   );
 }
 
+// ===================== ANSWER =====================
+
+function claimNextAnswer() {
+  const now = new Date();
+
+  return Answer.findOneAndUpdate(
+    { checkStatus: "retry", checkRetryAt: { $lte: now } },
+    {
+      $set: { checkRetryAt: new Date(now.getTime() + LEASE_MS) },
+      $inc: { checkAttempts: 1 },
+    },
+    { sort: { checkRetryAt: 1 }, new: true },
+  )
+    .select("text isDeleted moderationStatus checkAttempts")
+    .lean();
+}
+
+async function markAnswerDone(answerId) {
+  await Answer.updateOne(
+    { _id: answerId },
+    { $set: { checkStatus: "done", checkRetryAt: null } },
+  );
+}
+
+async function processAnswer(answer) {
+  // মুছে ফেলা বা admin দ্বারা সরানো answer-এ আর কাজ নেই
+  if (
+    answer.isDeleted ||
+    ["hidden", "removed"].includes(answer.moderationStatus)
+  ) {
+    await markAnswerDone(answer._id);
+    return;
+  }
+
+  const analysis = await categorizePost(answer.text);
+
+  if (!analysis.failed) {
+    await applyAnswerAnalysis(answer._id, analysis, answer.text);
+    return;
+  }
+
+  if (answer.checkAttempts >= CATEGORIZE_MAX_RETRIES) {
+    await Answer.updateOne(
+      { _id: answer._id },
+      { $set: { checkStatus: "failed", checkRetryAt: null } },
+    );
+    console.error(
+      `Answer যাচাই শেষ পর্যন্ত ব্যর্থ, answer: ${answer._id} (${answer.checkAttempts} বার চেষ্টা)`,
+    );
+    return;
+  }
+
+  await Answer.updateOne(
+    { _id: answer._id },
+    {
+      $set: {
+        checkRetryAt: new Date(Date.now() + CATEGORIZE_RETRY_DELAY_MS),
+      },
+    },
+  );
+}
+
+// ===================== মূল loop =====================
+
+async function runBatch(label, claim, process) {
+  for (let i = 0; i < BATCH_SIZE; i++) {
+    const item = await claim();
+    if (!item) break;
+
+    try {
+      await process(item);
+    } catch (err) {
+      // "ধরা" সময় শেষ হলে (১০ মিনিট) আবার আসবে
+      console.error(`${label} retry error, id: ${item._id}:`, err.message);
+    }
+  }
+}
+
 async function tick() {
   if (running) return; // আগের রাউন্ড শেষ না হলে নতুন রাউন্ড নয়
   running = true;
 
   try {
-    for (let i = 0; i < BATCH_SIZE; i++) {
-      const post = await claimNext();
-      if (!post) break;
-
-      try {
-        await processPost(post);
-      } catch (err) {
-        // এই post-এর "ধরা" সময় শেষ হলে (১০ মিনিট) আবার আসবে
-        console.error(
-          `Categorization retry error, post: ${post._id}:`,
-          err.message,
-        );
-      }
-    }
+    await runBatch("Post categorization", claimNextPost, processPost);
+    await runBatch("Answer moderation", claimNextAnswer, processAnswer);
   } catch (err) {
     console.error("Categorization retry job error:", err.message);
   } finally {

@@ -7,49 +7,39 @@ import { getBlockedUserIds } from "../../helpers/blockHelper.js";
 // ===================== GET ALL POSTS (cursor-based, N+1 fixed) =====================
 export const getPosts = async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 10;
-    const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+
+    let cursor = req.query.cursor ? new Date(req.query.cursor) : null;
+    if (cursor && Number.isNaN(cursor.getTime())) cursor = null;
+
     const userId = req.user?.id || null;
 
     // ── Block filter: দুই দিকের blocked user ──
     const blockedIds = await getBlockedUserIds(userId);
-    const blockedSet = new Set(blockedIds.map((id) => id.toString()));
 
     const query = {
-      moderationStatus: { $nin: ["deleted", "removed", "auto_hidden"] },
+      // শুধু public post; private কারো ফিডে আসবে না
+      privacy: "public",
+      moderationStatus: {
+        $nin: ["deleted", "removed", "auto_hidden", "hidden"],
+      },
       ...(cursor && { createdAt: { $lt: cursor } }),
       ...(blockedIds.length > 0 && { userid: { $nin: blockedIds } }),
     };
 
-    const rawPosts = await Post.find(query)
+    const posts = await Post.find(query)
       .populate("userid", "name username greenmarkVerified profileImage gender")
-      .populate({
-        path: "content.parentPost",
-        populate: {
-          path: "userid",
-          select: "name username greenmarkVerified profileImage gender",
-        },
-      })
       .sort({ createdAt: -1 })
       .limit(limit + 1)
       .lean();
 
-    const hasMore = rawPosts.length > limit;
-    if (hasMore) rawPosts.pop();
+    const hasMore = posts.length > limit;
+    if (hasMore) posts.pop();
 
-    // cursor সবসময় raw page-এর শেষ post থেকে (filter-এর আগে), যাতে pagination না ভাঙে
     const nextCursor =
-      hasMore && rawPosts.length > 0
-        ? rawPosts[rawPosts.length - 1].createdAt
-        : null;
+      hasMore && posts.length > 0 ? posts[posts.length - 1].createdAt : null;
 
-    // share post-এর original author blocked হলে সেই post বাদ
-    const posts = rawPosts.filter((p) => {
-      const parentAuthorId = p.content?.parentPost?.userid?._id?.toString();
-      return !(parentAuthorId && blockedSet.has(parentAuthorId));
-    });
-
-    // ── Reaction merge ────────────────────────────────────
+    // ── Reaction merge ──
     let reactedSet = new Set();
 
     if (userId && posts.length > 0) {
@@ -63,16 +53,13 @@ export const getPosts = async (req, res) => {
       reactedSet = new Set(reactions.map((r) => r.postId.toString()));
     }
 
-    // ── Follow status merge (N+1 fix) ──────────────────────
+    // ── Follow status merge (N+1 fix) ──
     let followingSet = new Set();
 
     if (userId && posts.length > 0) {
       const authorIds = new Set();
       posts.forEach((post) => {
         if (post.userid?._id) authorIds.add(post.userid._id.toString());
-        if (post.content?.parentPost?.userid?._id) {
-          authorIds.add(post.content.parentPost.userid._id.toString());
-        }
       });
       authorIds.delete(userId.toString());
 
@@ -87,7 +74,7 @@ export const getPosts = async (req, res) => {
       }
     }
 
-    // ── Final merge: isReacted + isFollowing ──────────────
+    // ── Final merge: isReacted + isFollowing ──
     let finalPosts = posts.map((post) => {
       const merged = {
         ...post,
@@ -101,20 +88,9 @@ export const getPosts = async (req, res) => {
         };
       }
 
-      if (merged.content?.parentPost?.userid) {
-        merged.content = {
-          ...merged.content,
-          parentPost: {
-            ...merged.content.parentPost,
-            userid: {
-              ...merged.content.parentPost.userid,
-              isFollowing: followingSet.has(
-                merged.content.parentPost.userid._id.toString(),
-              ),
-            },
-          },
-        };
-      }
+      // এই তথ্য সাধারণ ইউজারের কাছে যাবে না
+      delete merged.moderationHistory;
+      delete merged.reportCount;
 
       return merged;
     });

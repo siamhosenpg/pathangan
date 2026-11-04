@@ -8,19 +8,42 @@ const AUTO_FLAG_REASONS = ["local_filter", "ai_flagged"];
 export const CATEGORIZE_RETRY_DELAY_MS = 5 * 60 * 1000; // ৫ মিনিট
 export const CATEGORIZE_MAX_RETRIES = 5;
 
-// post-এর type অনুযায়ী যাচাই করার text বের করা
+const ANALYSIS_FIELDS =
+  "postType content.title content.text question.questionText course.title course.description";
+
+const joinText = (parts) =>
+  parts.filter((t) => typeof t === "string" && t.trim()).join("\n");
+
+// post-এর type অনুযায়ী Gemini-তে যাচাই করার text
 export function getTextForAnalysis(post) {
-  let parts = [];
+  if (post.postType === "question") {
+    return joinText([post.question?.questionText]);
+  }
+  if (post.postType === "course") {
+    return joinText([post.course?.title, post.course?.description]);
+  }
+  return joinText([post.content?.title, post.content?.text]);
+}
+
+// local filter-এ যাচাই করার text: মূল লেখা + tags, location, mentions
+export function getLocalCheckText(post) {
+  const extra = [];
+  const push = (v) => {
+    if (Array.isArray(v)) extra.push(...v);
+    else extra.push(v);
+  };
 
   if (post.postType === "question") {
-    parts = [post.question?.questionText];
+    push(post.question?.tags);
   } else if (post.postType === "course") {
-    parts = [post.course?.title, post.course?.description];
+    push(post.course?.tags);
   } else {
-    parts = [post.content?.title, post.content?.text];
+    push(post.content?.tags);
+    push(post.content?.location);
+    push(post.content?.mentions);
   }
 
-  return parts.filter((t) => typeof t === "string" && t.trim()).join("\n");
+  return joinText([getTextForAnalysis(post), ...extra]);
 }
 
 // system নিজে auto_hidden করেছে কিনা (admin বা report-এর কারণে হলে false)
@@ -49,8 +72,6 @@ export function flagEntry(reason, flagType) {
 }
 
 // "৫ মিনিট পরে category বের করো" চিহ্ন
-// post save করার সময় বা text বদলানোর সময় document-এ বসাতে হবে।
-// background কাজ মাঝপথে থেমে গেলেও (server restart) job এটা দেখে ধরে নেবে
 export function pendingCategorization() {
   return {
     categorizationStatus: "retry",
@@ -59,8 +80,21 @@ export function pendingCategorization() {
   };
 }
 
+// analysis করার পরে post-এর text এখনো একই আছে কিনা
+// (এর মধ্যে user edit করে ফেললে পুরোনো ফল বসানো যাবে না)
+async function isTextCurrent(postId, text) {
+  const fresh = await Post.findById(postId).select(ANALYSIS_FIELDS).lean();
+  if (!fresh) return false;
+  return getTextForAnalysis(fresh) === text;
+}
+
 // Gemini-র সফল ফল post-এ বসানো। flag করলে (hide করার মতো অবস্থায় থাকলে) auto_hidden
-export async function applyAnalysis(postId, analysis) {
+// text দিলে text বদলে গেছে কিনা দেখে নেয়। ফেরত দেয়: বসানো হলে true
+export async function applyAnalysis(postId, analysis, text) {
+  if (text !== undefined && !(await isTextCurrent(postId, text))) {
+    return false;
+  }
+
   await Post.updateOne(
     { _id: postId },
     {
@@ -86,6 +120,8 @@ export async function applyAnalysis(postId, analysis) {
       },
     );
   }
+
+  return true;
 }
 
 // ৫ মিনিট পরে আবার চেষ্টার সময় ঠিক করা
@@ -102,10 +138,30 @@ export async function scheduleRetry(postId) {
 }
 
 // post save হওয়ার পরে background-এ category বের করে update করে
+// text সবসময় database থেকে নতুন করে পড়া হয়, তাই দ্রুত পরপর edit করলেও পুরোনো ফল বসে না
 // response আটকায় না, এবং কখনো throw করে না
-export function categorizeInBackground(postId, text) {
+export function categorizeInBackground(postId) {
   (async () => {
     try {
+      const post = await Post.findById(postId).select(ANALYSIS_FIELDS).lean();
+      if (!post) return;
+
+      const text = getTextForAnalysis(post);
+
+      if (!text) {
+        await Post.updateOne(
+          { _id: postId },
+          {
+            $set: {
+              categories: [...DEFAULT_CATEGORIES],
+              categorizationStatus: "done",
+              categorizeRetryAt: null,
+            },
+          },
+        );
+        return;
+      }
+
       const analysis = await categorizePost(text);
 
       // Gemini ব্যর্থ: categories ছুঁই না, ৫ মিনিট পরে job আবার চেষ্টা করবে
@@ -114,7 +170,7 @@ export function categorizeInBackground(postId, text) {
         return;
       }
 
-      await applyAnalysis(postId, analysis);
+      await applyAnalysis(postId, analysis, text);
     } catch (err) {
       // database সমস্যা হলে "retry" চিহ্ন আগে থেকেই আছে, job ধরে নেবে
       console.error("Background categorize error:", err.message);

@@ -51,16 +51,12 @@ const postSchema = new mongoose.Schema(
 
     // ===================== NORMAL POST =====================
     content: {
-      parentPost: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Post",
-      },
       title: { type: String, trim: true },
       text: { type: String, trim: true },
       media: [{ type: String }],
       type: {
         type: String,
-        enum: ["image", "video", "text", "share", "audio"],
+        enum: ["image", "video", "text", "audio"],
         default: "text",
       },
       location: { type: String },
@@ -97,7 +93,7 @@ const postSchema = new mongoose.Schema(
 
     privacy: {
       type: String,
-      enum: ["public", "friends", "private"],
+      enum: ["public", "private"],
       default: "public",
     },
 
@@ -164,7 +160,6 @@ postSchema.index({ moderationStatus: 1, createdAt: -1 });
 postSchema.index({ userid: 1, createdAt: -1 });
 
 // category দিয়ে filter/search করার জন্য
-
 postSchema.index({ categories: 1, createdAt: -1 });
 
 // retry job-এর জন্য: শুধু "retry" অবস্থার post এই index-এ থাকে, তাই খুব ছোট
