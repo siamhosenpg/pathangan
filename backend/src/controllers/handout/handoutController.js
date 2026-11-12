@@ -3,11 +3,17 @@ import { uploadMedia } from "../../utils/uploadToCloudinary.js";
 import Handout from "../../models/handoutModel.js";
 import Chapter from "../../models/chapterModel.js";
 import { generateSlug } from "../../utils/slugify.js";
+import { isValidHandoutCategory } from "../../constants/handoutCategories.js";
 import {
   getBlockedUserIds,
   getBlockRelation,
   isUserDeleted,
 } from "../../helpers/blockHelper.js";
+import {
+  checkHandoutInfo,
+  scanWholeHandout,
+  restoreIfClean,
+} from "../../helpers/moderation/handout/handoutModeration.js";
 
 // ── Price validate করার helper (create + update দুই জায়গায় ব্যবহার হবে) ──
 const validatePrice = (price) => {
@@ -21,6 +27,12 @@ const validatePrice = (price) => {
   return { valid: true, value: num };
 };
 
+const moderationResponse = (check) => ({
+  flagged: check.flagged,
+  flagType: check.flagType,
+  message: check.message,
+});
+
 // ── Handout তৈরি (draft হিসেবে শুরু হবে) ──
 export const createHandout = async (req, res) => {
   try {
@@ -31,6 +43,12 @@ export const createHandout = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "title, description ও category আবশ্যক",
+      });
+    }
+    if (!isValidHandoutCategory(category)) {
+      return res.status(400).json({
+        success: false,
+        message: "category সঠিক নয়",
       });
     }
 
@@ -63,6 +81,11 @@ export const createHandout = async (req, res) => {
       }
     }
 
+    const safeTags = Array.isArray(tags) ? tags : [];
+
+    // ── Bad text check: draft হিসেবে save হবে, কিন্তু publish করা যাবে না ──
+    const check = checkHandoutInfo({ title, description, tags: safeTags });
+
     const slug = generateSlug(title);
 
     const handout = await Handout.create({
@@ -72,12 +95,16 @@ export const createHandout = async (req, res) => {
       description,
       coverImage,
       category,
-      tags: Array.isArray(tags) ? tags : [],
+      tags: safeTags,
       price: priceCheck.value, // ✅
       status: "draft",
     });
 
-    return res.status(201).json({ success: true, data: handout });
+    return res.status(201).json({
+      success: true,
+      data: handout,
+      moderation: moderationResponse(check),
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -130,12 +157,39 @@ export const updateHandout = async (req, res) => {
       handout.coverImage = result.url;
     }
 
-    if (category) handout.category = category;
+    if (category !== undefined) {
+      if (!isValidHandoutCategory(category)) {
+        return res.status(400).json({
+          success: false,
+          message: "category সঠিক নয়",
+        });
+      }
+      handout.category = category;
+    }
     if (Array.isArray(tags)) handout.tags = tags;
+
+    // ── Bad text check: বদলানোর পরের চূড়ান্ত title/description/tags ──
+    // শুধু published হলে auto_hidden হবে। under_review / draft এ status বদলায় না
+    const check = checkHandoutInfo(handout);
+    if (check.flagged && handout.status === "published") {
+      handout.status = "auto_hidden";
+    }
 
     await handout.save();
 
-    return res.status(200).json({ success: true, data: handout });
+    // লেখা পরিষ্কার হলে: শুধু auto_hidden থাকলে (chapter সহ) আবার যাচাই করে ফিরিয়ে আনা
+    // under_review হলে restoreIfClean কিছুই করে না
+    if (!check.flagged) {
+      await restoreIfClean(handout._id);
+    }
+
+    const fresh = await Handout.findById(handout._id).lean();
+
+    return res.status(200).json({
+      success: true,
+      data: fresh,
+      moderation: moderationResponse(check),
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -155,6 +209,15 @@ export const publishHandout = async (req, res) => {
     if (handout.user.toString() !== req.user.id) {
       return res.status(403).json({ success: false, message: "অনুমতি নেই" });
     }
+
+    // under_review: report বা manual review চলছে, owner নিজে publish করতে পারবে না
+    if (handout.status === "under_review") {
+      return res.status(403).json({
+        success: false,
+        message: "আপনার handout পর্যালোচনায় আছে, এখন publish করা যাবে না",
+      });
+    }
+
     if (handout.chaptersCount < 1) {
       return res.status(400).json({
         success: false,
@@ -162,8 +225,24 @@ export const publishHandout = async (req, res) => {
       });
     }
 
+    // ── Bad text check: handout-এর তথ্য + সব chapter ──
+    const scan = await scanWholeHandout(handout._id);
+    if (scan.flagged) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "আপনার handout বা কোনো chapter-এ অশালীন বা ক্ষতিকর লেখা পাওয়া গেছে, তাই publish করা যাচ্ছে না। লেখা ঠিক করে আবার চেষ্টা করুন।",
+        moderation: {
+          flagged: true,
+          flagType: scan.flagType,
+          message: scan.message,
+          chapterId: scan.chapterId || null,
+        },
+      });
+    }
+
     handout.status = "published";
-    handout.publishedAt = new Date();
+    if (!handout.publishedAt) handout.publishedAt = new Date();
     await handout.save();
 
     return res.status(200).json({ success: true, data: handout });
@@ -173,13 +252,21 @@ export const publishHandout = async (req, res) => {
 };
 
 // ── Feed: সব published handout, cursor pagination + category filter ──
+// (draft / auto_hidden / under_review এখানে আসে না, কারণ status: "published" filter আছে)
 export const getHandouts = async (req, res) => {
   try {
     const { cursor, limit = 10, category, search, pricing } = req.query;
     const pageLimit = Math.min(Number(limit), 30);
 
     const filter = { isDeleted: false, status: "published" };
-    if (category) filter.category = category;
+    if (category) {
+      if (!isValidHandoutCategory(category)) {
+        return res
+          .status(400)
+          .json({ success: false, message: "category সঠিক নয়" });
+      }
+      filter.category = category;
+    }
 
     // ── Block: দুই দিকের blocked user-দের handout বাদ ──
     const blockedIds = await getBlockedUserIds(req.user?.id);
@@ -212,7 +299,7 @@ export const getHandouts = async (req, res) => {
   }
 };
 
-// ── নিজের সব handout (draft + published) ──
+// ── নিজের সব handout (draft + published + auto_hidden + under_review) ──
 export const getMyHandouts = async (req, res) => {
   try {
     const { cursor, limit = 10, status } = req.query;
@@ -268,7 +355,7 @@ export const getHandoutBySlug = async (req, res) => {
         .json({ success: false, message: "Handout পাওয়া যায়নি" });
     }
 
-    // owner না হলে draft দেখতে পারবে না
+    // owner না হলে draft / auto_hidden / under_review দেখতে পারবে না
     const isOwner = req.user && req.user.id === handout.user._id.toString();
     if (handout.status !== "published" && !isOwner) {
       return res

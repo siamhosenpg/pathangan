@@ -4,6 +4,17 @@ import Handout from "../../models/handoutModel.js";
 import { countWords, calcReadTime } from "../../utils/slugify.js";
 import { getBlockRelation } from "../../helpers/blockHelper.js";
 import { syncHandoutRatingStats } from "../rating/chapterRatingController.js";
+import {
+  checkChapter,
+  autoHideIfPublished,
+  restoreIfClean,
+} from "../../helpers/moderation/handout/handoutModeration.js";
+
+const moderationResponse = (check) => ({
+  flagged: check.flagged,
+  flagType: check.flagType,
+  message: check.message,
+});
 
 // ── Chapter যোগ করা ──
 export const addChapter = async (req, res) => {
@@ -51,7 +62,17 @@ export const addChapter = async (req, res) => {
       },
     );
 
-    return res.status(201).json({ success: true, data: chapter });
+    // ── Bad text check: খারাপ কিছু পেলে published handout auto_hidden ──
+    const check = checkChapter({ title, content });
+    if (check.flagged) {
+      await autoHideIfPublished(handoutId);
+    }
+
+    return res.status(201).json({
+      success: true,
+      data: chapter,
+      moderation: moderationResponse(check),
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -98,7 +119,21 @@ export const updateChapter = async (req, res) => {
       );
     }
 
-    return res.status(200).json({ success: true, data: chapter });
+    // ── Bad text check: edit-এর পরের চূড়ান্ত title + content ──
+    const check = checkChapter(chapter);
+    if (check.flagged) {
+      await autoHideIfPublished(chapter.handout);
+    } else {
+      // পরিষ্কার হলে এবং handout auto_hidden থাকলে, পুরোটা আবার যাচাই করে ফিরিয়ে আনা
+      // under_review হলে কিছুই হবে না
+      await restoreIfClean(chapter.handout);
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: chapter,
+      moderation: moderationResponse(check),
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -140,6 +175,9 @@ export const deleteChapter = async (req, res) => {
     // মুছে যাওয়া chapter এর rating বাদ দিয়ে handout এর average আবার হিসাব
     await syncHandoutRatingStats(chapter.handout);
 
+    // খারাপ chapter মুছে ফেললে বাকিটা পরিষ্কার থাকলে auto_hidden handout ফিরে আসবে
+    await restoreIfClean(chapter.handout);
+
     return res
       .status(200)
       .json({ success: true, message: "Chapter ডিলিট করা হয়েছে" });
@@ -170,9 +208,9 @@ export const getChaptersByHandout = async (req, res) => {
     }
 
     const viewerId = req.user?.id || null;
-    const isOwner = viewerId && viewerId === handout.user.toString();
+    const isOwner = !!viewerId && viewerId === handout.user.toString();
 
-    // owner না হলে draft-এর chapter দেখা যাবে না
+    // owner না হলে draft / auto_hidden / under_review-এর chapter দেখা যাবে না
     if (handout.status !== "published" && !isOwner) {
       return res
         .status(404)
@@ -196,7 +234,15 @@ export const getChaptersByHandout = async (req, res) => {
       .sort({ order: 1 })
       .lean();
 
-    return res.status(200).json({ success: true, data: chapters });
+    // শুধু owner কে জানাই কোন chapter-এ খারাপ লেখা আছে (অন্যদের response আগের মতোই)
+    const data = isOwner
+      ? chapters.map((ch) => ({
+          ...ch,
+          hasBadText: checkChapter(ch).flagged,
+        }))
+      : chapters;
+
+    return res.status(200).json({ success: true, data });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-
+import { HANDOUT_CATEGORIES } from "../constants/handoutCategories.js";
 const handoutSchema = new mongoose.Schema(
   {
     // ── লেখক ──
@@ -46,7 +46,7 @@ const handoutSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: ["golpo", "itihash", "dharmiyo", "kobita", "ovizoggota", "onnanno"],
+      enum: HANDOUT_CATEGORIES,
       required: true,
       index: true,
     },
@@ -61,7 +61,7 @@ const handoutSchema = new mongoose.Schema(
     // ── স্ট্যাটাস ──
     status: {
       type: String,
-      enum: ["draft", "published"],
+      enum: ["draft", "published", "auto_hidden", "under_review"],
       default: "draft",
       index: true,
     },
