@@ -36,6 +36,29 @@ const cleanList = (value) => {
     .slice(0, 20);
 };
 
+// একসাথে সর্বোচ্চ `limit` টা কাজ চালায়, ফলাফলের ক্রম ঠিক রাখে
+const runWithLimit = async (items, limit, worker) => {
+  const results = new Array(items.length);
+  let next = 0;
+
+  const runners = Array.from(
+    { length: Math.min(limit, items.length) },
+    async () => {
+      while (true) {
+        const i = next++;
+        if (i >= items.length) return;
+        results[i] = await worker(items[i], i);
+      }
+    },
+  );
+
+  await Promise.all(runners);
+  return results;
+};
+
+// একসাথে কয়টা ছবি আপলোড হবে (RAM কম হলে ২ করুন, ভালো হলে ৪-৫)
+const IMAGE_UPLOAD_CONCURRENCY = 3;
+
 // নতুন post বানানোর সময় moderation-এর অংশ একই নিয়মে তৈরি
 // draft: { postType, content | question | course } (শুধু যাচাইয়ের জন্য)
 function buildModerationFields(draft) {
@@ -167,13 +190,15 @@ export const createPost = async (req, res) => {
 
       if (images.length > 0) {
         contentType = "image";
-        const results = await Promise.all(
-          images.map((f) =>
+        // একসাথে সব না, IMAGE_UPLOAD_CONCURRENCY টা করে আপলোড
+        const results = await runWithLimit(
+          images,
+          IMAGE_UPLOAD_CONCURRENCY,
+          (f) =>
             uploadMedia(f, {
               baseFolder: "posts",
               username: req.user.username,
             }),
-          ),
         );
         mediaUrls = results.map((r) => r.url);
       }
@@ -329,14 +354,17 @@ export const createCoursePost = async (req, res) => {
         return res.status(400).json({ message: "Only one video is allowed" });
       }
 
-      const imageUploads = await Promise.all(
-        images.map(async (file) => {
+      // একসাথে সব না, IMAGE_UPLOAD_CONCURRENCY টা করে আপলোড
+      const imageUploads = await runWithLimit(
+        images,
+        IMAGE_UPLOAD_CONCURRENCY,
+        async (file) => {
           const result = await uploadMedia(file, {
             baseFolder: "courses",
             username: req.user.username,
           });
           return { type: "image", url: result.url };
-        }),
+        },
       );
 
       const videoUploads = await Promise.all(
