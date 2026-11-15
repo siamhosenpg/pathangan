@@ -6,6 +6,10 @@ import { getBlockedUserIds } from "../helpers/blockHelper.js";
 import { checkBadText } from "../helpers/moderation/badTextFilter.js";
 import { buildModerationNotice } from "../helpers/moderation/moderationNotice.js";
 import {
+  validateNormalPost,
+  validateQuestion,
+} from "../helpers/postValidation.js";
+import {
   DEFAULT_CATEGORIES,
   categorizePost,
   categorizeInBackground,
@@ -167,6 +171,16 @@ export const createPost = async (req, res) => {
 
     const { text, title, privacy, location, tags, mentions } = req.body;
     const files = req.files || [];
+
+    // ── নিয়ম যাচাই: ফাইল আপলোডের আগে, যাতে বৃথা আপলোড না হয় ──
+    const validationError = validateNormalPost({
+      title: str(title),
+      text: str(text),
+    });
+    if (validationError) {
+      return res.status(400).json({ success: false, message: validationError });
+    }
+
     let mediaUrls = [];
     let contentType = "text";
     let videoMeta = null;
@@ -266,7 +280,6 @@ export const createPost = async (req, res) => {
     res.status(400).json({ success: false, message: error.message });
   }
 };
-
 // ===================== CREATE QUESTION POST =====================
 export const createQuestionPost = async (req, res) => {
   try {
@@ -276,8 +289,10 @@ export const createQuestionPost = async (req, res) => {
 
     const { questionText, tags, privacy } = req.body;
 
-    if (!str(questionText)) {
-      return res.status(400).json({ message: "questionText is required" });
+    // ── নিয়ম যাচাই: খালি থাকলে এবং ৫০ অক্ষরের কম হলে ──
+    const questionError = validateQuestion(questionText);
+    if (questionError) {
+      return res.status(400).json({ message: questionError });
     }
 
     if (req.files?.length > 0) {
@@ -456,9 +471,6 @@ export const updatePost = async (req, res) => {
     if (post.postType === "question" && req.body.question) {
       const q = req.body.question;
       if (q.questionText !== undefined) {
-        if (!str(q.questionText)) {
-          return res.status(400).json({ message: "questionText is required" });
-        }
         post.question.questionText = q.questionText;
       }
       if (q.tags !== undefined) post.question.tags = cleanList(q.tags);
@@ -489,6 +501,19 @@ export const updatePost = async (req, res) => {
         return res.status(400).json({ message: "Invalid privacy value" });
       }
       post.privacy = req.body.privacy;
+    }
+
+    // ── নিয়ম যাচাই (edit-এর পরের অবস্থা দেখে) ──
+    if (post.postType === "post") {
+      const editError = validateNormalPost({
+        title: post.content?.title ?? "",
+        text: post.content?.text ?? "",
+      });
+      if (editError) return res.status(400).json({ message: editError });
+    }
+    if (post.postType === "question") {
+      const editError = validateQuestion(post.question?.questionText ?? "");
+      if (editError) return res.status(400).json({ message: editError });
     }
 
     // ── Moderation: text বা tags/location/mentions বদলালে চেক ──
