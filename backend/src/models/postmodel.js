@@ -51,8 +51,8 @@ const postSchema = new mongoose.Schema(
 
     // ===================== NORMAL POST =====================
     content: {
-      title: { type: String, trim: true },
-      text: { type: String, trim: true },
+      title: { type: String, trim: true, maxlength: 120 },
+      text: { type: String, trim: true, maxlength: 5000 },
       media: [{ type: String }],
       type: {
         type: String,

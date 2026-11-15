@@ -2,6 +2,7 @@ export const TITLE_MIN = 10;
 export const TITLE_MAX = 120;
 export const TITLE_ONLY_MIN = 50;
 export const TEXT_MIN = 50;
+export const TEXT_MAX = 5000;
 export const QUESTION_MIN = 50;
 
 const MESSAGES = {
@@ -11,6 +12,7 @@ const MESSAGES = {
   errTitleTooShort: `Title must be at least ${TITLE_MIN} characters`,
   errTitleOnlyTooShort: `A title-only post needs at least ${TITLE_ONLY_MIN} characters, or add a description`,
   errTextTooShort: `Description must be at least ${TEXT_MIN} characters`,
+  errTextTooLong: `Description can be at most ${TEXT_MAX} characters`,
   errEmptyQuestion: "questionText is required",
   errQuestionTooShort: `Question must be at least ${QUESTION_MIN} characters`,
 };
@@ -23,6 +25,7 @@ export const validateNormalPost = ({ title = "", text = "" }) => {
   const x = String(text).trim();
 
   if (t.length > TITLE_MAX) return toMessage("errTitleTooLong");
+  if (x.length > TEXT_MAX) return toMessage("errTextTooLong");
   if (!t && !x) return toMessage("errEmptyPost");
 
   if (t && x) {
